@@ -1,3 +1,4 @@
+# YouTube Transcript Extractor
 
 A simple Chrome extension that extracts transcripts from YouTube videos and copies them to your clipboard.
 

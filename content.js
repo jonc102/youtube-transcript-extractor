@@ -72,13 +72,25 @@ async function getTranscript() {
     let transcriptText = '';
 
     transcriptSegments.forEach(segment => {
+      // Try to get the timestamp
+      const timestampElement = segment.querySelector('.segment-timestamp') ||
+                              segment.querySelector('[class*="segment-timestamp"]') ||
+                              segment.querySelector('div[class*="cue-group"] div[class*="cue"]:first-child');
+
       // Try multiple selectors for the text content
       const textElement = segment.querySelector('.segment-text') ||
                          segment.querySelector('yt-formatted-string.segment-text') ||
                          segment.querySelector('[class*="segment-text"]');
 
       if (textElement) {
-        transcriptText += textElement.textContent.trim() + ' ';
+        const timestamp = timestampElement ? timestampElement.textContent.trim() : '';
+        const text = textElement.textContent.trim();
+
+        if (timestamp) {
+          transcriptText += `[${timestamp}] ${text}\n`;
+        } else {
+          transcriptText += `${text}\n`;
+        }
       }
     });
 
