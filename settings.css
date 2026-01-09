@@ -117,6 +117,27 @@ label {
   background-color: #e0e0e0;
 }
 
+.btn-icon {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px 15px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.btn-icon:hover {
+  background-color: #e0e0e0;
+  transform: rotate(180deg);
+}
+
+.btn-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .info-message {
   margin-top: 10px;
   padding: 10px;

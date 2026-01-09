@@ -55,9 +55,15 @@ Summarize the following transcript in bullet points:"></textarea>
       <h2>Model Selection</h2>
       <div class="form-group">
         <label for="model">Model:</label>
-        <select id="model" class="input">
-          <!-- Options will be populated by JavaScript based on provider -->
-        </select>
+        <div style="display: flex; gap: 10px;">
+          <select id="model" class="input" style="flex: 1;">
+            <!-- Options will be populated by JavaScript based on provider -->
+          </select>
+          <button id="refreshModelsBtn" class="btn-icon" title="Refresh models">🔄</button>
+        </div>
+      </div>
+      <div class="info-message">
+        Models are automatically fetched when you enter your API key. Click refresh to reload.
       </div>
     </div>
 
