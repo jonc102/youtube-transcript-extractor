@@ -2,18 +2,129 @@ document.addEventListener('DOMContentLoaded', function() {
   const extractBtn = document.getElementById('extractBtn');
   const settingsBtn = document.getElementById('settingsBtn');
   const statusDiv = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const copyTranscriptBtn = document.getElementById('copyTranscriptBtn');
   const transcriptPreview = document.getElementById('transcriptPreview');
+
+  let originalTranscript = ''; // Store the original transcript
 
   settingsBtn.addEventListener('click', function() {
     window.location.href = 'settings.html';
   });
 
+  // Handle copy transcript button click
+  copyTranscriptBtn.addEventListener('click', async function() {
+    if (originalTranscript) {
+      try {
+        await navigator.clipboard.writeText(originalTranscript);
+        const originalText = statusText.textContent;
+        statusText.textContent = 'Original transcript copied!';
+        setTimeout(() => {
+          statusText.textContent = originalText;
+        }, 2000);
+      } catch (error) {
+        console.error('Failed to copy transcript:', error);
+      }
+    }
+  });
+
+  // Simple markdown to HTML converter
+  function markdownToHtml(text) {
+    let html = text;
+
+    // Escape HTML to prevent XSS
+    html = html.replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;');
+
+    // Split into lines for better processing
+    const lines = html.split('\n');
+    const processed = [];
+    let inList = false;
+    let listType = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+
+      // Check for list items
+      const unorderedMatch = line.match(/^[\*\-]\s+(.+)$/);
+      const orderedMatch = line.match(/^\d+\.\s+(.+)$/);
+
+      if (unorderedMatch || orderedMatch) {
+        const content = unorderedMatch ? unorderedMatch[1] : orderedMatch[1];
+        const currentListType = unorderedMatch ? 'ul' : 'ol';
+
+        if (!inList) {
+          processed.push(`<${currentListType}>`);
+          inList = true;
+          listType = currentListType;
+        } else if (listType !== currentListType) {
+          processed.push(`</${listType}>`);
+          processed.push(`<${currentListType}>`);
+          listType = currentListType;
+        }
+
+        processed.push(`<li>${content}</li>`);
+      } else {
+        if (inList) {
+          processed.push(`</${listType}>`);
+          inList = false;
+          listType = null;
+        }
+
+        // Headers
+        if (line.match(/^###\s+(.+)$/)) {
+          line = line.replace(/^###\s+(.+)$/, '<h3>$1</h3>');
+        } else if (line.match(/^##\s+(.+)$/)) {
+          line = line.replace(/^##\s+(.+)$/, '<h2>$1</h2>');
+        } else if (line.match(/^#\s+(.+)$/)) {
+          line = line.replace(/^#\s+(.+)$/, '<h1>$1</h1>');
+        } else if (line.trim() === '') {
+          line = '<br>';
+        } else {
+          line = '<p>' + line + '</p>';
+        }
+
+        processed.push(line);
+      }
+    }
+
+    // Close any open list
+    if (inList) {
+      processed.push(`</${listType}>`);
+    }
+
+    html = processed.join('');
+
+    // Bold (after list processing to avoid conflicts)
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+    // Italic
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+
+    // Code blocks
+    html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+
+    // Inline code
+    html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+
+    // Remove empty paragraphs
+    html = html.replace(/<p><\/p>/g, '');
+    html = html.replace(/<p><br><\/p>/g, '<br>');
+
+    return html;
+  }
+
   extractBtn.addEventListener('click', async function() {
     // Clear previous status and preview
-    statusDiv.textContent = 'Extracting transcript...';
+    statusText.textContent = 'Extracting transcript...';
     statusDiv.className = 'status info';
+    copyTranscriptBtn.style.display = 'none';
     transcriptPreview.textContent = '';
     extractBtn.disabled = true;
+    originalTranscript = '';
 
     try {
       // Get the active tab
@@ -21,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Check if we're on a YouTube page
       if (!tab.url.includes('youtube.com/watch')) {
-        statusDiv.textContent = 'Please open a YouTube video page.';
+        statusText.textContent = 'Please open a YouTube video page.';
         statusDiv.className = 'status error';
         extractBtn.disabled = false;
         return;
@@ -44,27 +155,28 @@ document.addEventListener('DOMContentLoaded', function() {
       // Send message to content script to extract transcript
       chrome.tabs.sendMessage(tab.id, { action: 'getTranscript' }, async function(response) {
         if (chrome.runtime.lastError) {
-          statusDiv.textContent = 'Error: ' + chrome.runtime.lastError.message;
+          statusText.textContent = 'Error: ' + chrome.runtime.lastError.message;
           statusDiv.className = 'status error';
           extractBtn.disabled = false;
           return;
         }
 
         if (!response) {
-          statusDiv.textContent = 'Error: No response from content script. Please refresh the page and try again.';
+          statusText.textContent = 'Error: No response from content script. Please refresh the page and try again.';
           statusDiv.className = 'status error';
           extractBtn.disabled = false;
           return;
         }
 
         if (response.error) {
-          statusDiv.textContent = response.error;
+          statusText.textContent = response.error;
           statusDiv.className = 'status error';
           extractBtn.disabled = false;
           return;
         }
 
         if (response.success && response.transcript) {
+          originalTranscript = response.transcript; // Store the original
           let finalText = response.transcript;
 
           try {
@@ -76,31 +188,31 @@ document.addEventListener('DOMContentLoaded', function() {
             ]);
 
             if (settings.apiProvider && settings.apiKey && settings.customPrompt) {
-              statusDiv.textContent = 'Processing with AI...';
+              statusText.textContent = 'Processing with AI...';
               statusDiv.className = 'status info';
 
               try {
                 finalText = await processTranscriptWithAI(response.transcript, settings);
-                statusDiv.textContent = 'AI processing complete! Result copied to clipboard.';
+                statusText.textContent = 'AI processing complete! Result copied to clipboard.';
+                copyTranscriptBtn.style.display = 'inline-block'; // Show the button
               } catch (apiError) {
                 console.error('API error:', apiError);
-                statusDiv.textContent = 'AI processing failed: ' + apiError.message + '. Original transcript copied instead.';
+                statusText.textContent = 'AI processing failed: ' + apiError.message + '. Original transcript copied instead.';
                 statusDiv.className = 'status error';
               }
             } else {
-              statusDiv.textContent = 'Transcript copied to clipboard!';
+              statusText.textContent = 'Transcript copied to clipboard!';
             }
 
             await navigator.clipboard.writeText(finalText);
             statusDiv.className = 'status success';
 
-            const preview = finalText.substring(0, 300) +
-                          (finalText.length > 300 ? '...' : '');
-            transcriptPreview.textContent = preview;
+            // Show full text in preview with formatting
+            transcriptPreview.innerHTML = markdownToHtml(finalText);
           } catch (clipboardError) {
-            statusDiv.textContent = 'Failed to copy to clipboard: ' + clipboardError.message;
+            statusText.textContent = 'Failed to copy to clipboard: ' + clipboardError.message;
             statusDiv.className = 'status error';
-            transcriptPreview.textContent = finalText;
+            transcriptPreview.innerHTML = markdownToHtml(finalText);
           }
         }
 
@@ -108,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function() {
       });
 
     } catch (error) {
-      statusDiv.textContent = 'Error: ' + error.message;
+      statusText.textContent = 'Error: ' + error.message;
       statusDiv.className = 'status error';
       extractBtn.disabled = false;
     }

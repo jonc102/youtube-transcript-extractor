@@ -1,71 +1,33 @@
 async function callOpenAI(apiKey, model, prompt, transcript) {
-  const messages = [
-    {
-      role: 'user',
-      content: prompt + '\n\n' + transcript
-    }
-  ];
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 4000
-    })
+  const response = await chrome.runtime.sendMessage({
+    action: 'callOpenAI',
+    apiKey: apiKey,
+    model: model,
+    prompt: prompt,
+    transcript: transcript
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`);
+  if (!response.success) {
+    throw new Error(response.error || 'OpenAI API call failed');
   }
 
-  const data = await response.json();
-
-  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-    throw new Error('Invalid response format from OpenAI API');
-  }
-
-  return data.choices[0].message.content;
+  return response.result;
 }
 
 async function callClaude(apiKey, model, prompt, transcript) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: model,
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: prompt + '\n\n' + transcript
-        }
-      ]
-    })
+  const response = await chrome.runtime.sendMessage({
+    action: 'callClaude',
+    apiKey: apiKey,
+    model: model,
+    prompt: prompt,
+    transcript: transcript
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Claude API error: ${response.status} ${response.statusText}`);
+  if (!response.success) {
+    throw new Error(response.error || 'Claude API call failed');
   }
 
-  const data = await response.json();
-
-  if (!data.content || !data.content[0] || !data.content[0].text) {
-    throw new Error('Invalid response format from Claude API');
-  }
-
-  return data.content[0].text;
+  return response.result;
 }
 
 async function processTranscriptWithAI(transcript, settings) {

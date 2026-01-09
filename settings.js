@@ -9,78 +9,39 @@ async function fetchOpenAIModels(apiKey) {
   }
 
   try {
-    const response = await fetch('https://api.openai.com/v1/models', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
+    const response = await chrome.runtime.sendMessage({
+      action: 'fetchOpenAIModels',
+      apiKey: apiKey
     });
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.error('Invalid OpenAI API key');
-        return null;
-      }
-      throw new Error(`Failed to fetch models: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.data || !Array.isArray(data.data)) {
-      console.error('Unexpected response format from OpenAI API');
+    if (response.error) {
+      console.error('Error fetching OpenAI models:', response.error);
       return null;
     }
 
-    const chatModels = data.data
-      .filter(model =>
-        model.id.includes('gpt-4') ||
-        model.id.includes('gpt-3.5') ||
-        model.id.includes('o1')
-      )
-      .sort((a, b) => {
-        const priority = {
-          'gpt-4o': 1,
-          'gpt-4o-mini': 2,
-          'o1': 3,
-          'gpt-4-turbo': 4,
-          'gpt-4': 5,
-          'gpt-3.5-turbo': 6
-        };
-
-        const getPriority = (id) => {
-          for (const [key, val] of Object.entries(priority)) {
-            if (id.startsWith(key)) return val;
-          }
-          return 999;
-        };
-
-        return getPriority(a.id) - getPriority(b.id);
-      })
-      .map(model => ({
-        value: model.id,
-        label: model.id
-      }));
-
-    if (chatModels.length === 0) {
-      console.warn('No chat models found in OpenAI API response');
-      return null;
+    if (response.success && response.models) {
+      return response.models;
     }
 
-    return chatModels;
+    return null;
   } catch (error) {
-    console.error('Error fetching OpenAI models:', error);
+    console.error('Error communicating with background service:', error);
     return null;
   }
 }
 
 async function fetchClaudeModels(apiKey) {
   const defaultModels = [
-    { value: 'claude-3-5-sonnet-20241022', label: 'claude-3-5-sonnet-20241022' },
-    { value: 'claude-3-5-sonnet-20240620', label: 'claude-3-5-sonnet-20240620' },
-    { value: 'claude-3-5-haiku-20241022', label: 'claude-3-5-haiku-20241022' },
-    { value: 'claude-3-opus-20240229', label: 'claude-3-opus-20240229' },
-    { value: 'claude-3-sonnet-20240229', label: 'claude-3-sonnet-20240229' },
-    { value: 'claude-3-haiku-20240307', label: 'claude-3-haiku-20240307' }
+    { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Latest)' },
+    { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet v2' },
+    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet v1' },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
   ];
 
   if (!apiKey || apiKey.trim() === '') {
@@ -88,35 +49,26 @@ async function fetchClaudeModels(apiKey) {
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'test' }]
-      })
+    const response = await chrome.runtime.sendMessage({
+      action: 'fetchClaudeModels',
+      apiKey: apiKey
     });
 
-    if (response.ok || response.status === 400) {
-      return defaultModels;
-    } else if (response.status === 401) {
-      console.error('Invalid Claude API key');
-      return null;
-    } else {
-      console.warn(`Claude API returned status ${response.status}, using default models`);
+    if (response.error) {
+      console.error('Error validating Claude API key:', response.error);
+      if (response.error === 'Invalid API key') {
+        return null;
+      }
       return defaultModels;
     }
+
+    if (response.success && response.models) {
+      return response.models;
+    }
+
+    return defaultModels;
   } catch (error) {
-    console.error('Error validating Claude API key:', error);
-    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      console.warn('Network error, using default Claude models');
-      return defaultModels;
-    }
+    console.error('Error communicating with background service:', error);
     return defaultModels;
   }
 }
@@ -169,7 +121,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const apiKey = apiKeyInput.value.trim();
     const provider = apiProviderSelect.value;
 
-    if (apiKey && provider) {
+    if (apiKey && provider && apiKey.length > 10) {
       await fetchAndPopulateModels(provider, apiKey);
     }
   });
