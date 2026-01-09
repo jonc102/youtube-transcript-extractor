@@ -1,7 +1,12 @@
 document.addEventListener('DOMContentLoaded', function() {
   const extractBtn = document.getElementById('extractBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
   const statusDiv = document.getElementById('status');
   const transcriptPreview = document.getElementById('transcriptPreview');
+
+  settingsBtn.addEventListener('click', function() {
+    window.location.href = 'settings.html';
+  });
 
   extractBtn.addEventListener('click', async function() {
     // Clear previous status and preview
@@ -60,20 +65,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (response.success && response.transcript) {
-          // Copy to clipboard
+          let finalText = response.transcript;
+
           try {
-            await navigator.clipboard.writeText(response.transcript);
-            statusDiv.textContent = 'Transcript copied to clipboard!';
+            const settings = await chrome.storage.sync.get([
+              'apiProvider',
+              'apiKey',
+              'customPrompt',
+              'model'
+            ]);
+
+            if (settings.apiProvider && settings.apiKey && settings.customPrompt) {
+              statusDiv.textContent = 'Processing with AI...';
+              statusDiv.className = 'status info';
+
+              try {
+                finalText = await processTranscriptWithAI(response.transcript, settings);
+                statusDiv.textContent = 'AI processing complete! Result copied to clipboard.';
+              } catch (apiError) {
+                console.error('API error:', apiError);
+                statusDiv.textContent = 'AI processing failed: ' + apiError.message + '. Original transcript copied instead.';
+                statusDiv.className = 'status error';
+              }
+            } else {
+              statusDiv.textContent = 'Transcript copied to clipboard!';
+            }
+
+            await navigator.clipboard.writeText(finalText);
             statusDiv.className = 'status success';
 
-            // Show preview (first 300 characters)
-            const preview = response.transcript.substring(0, 300) +
-                          (response.transcript.length > 300 ? '...' : '');
+            const preview = finalText.substring(0, 300) +
+                          (finalText.length > 300 ? '...' : '');
             transcriptPreview.textContent = preview;
           } catch (clipboardError) {
             statusDiv.textContent = 'Failed to copy to clipboard: ' + clipboardError.message;
             statusDiv.className = 'status error';
-            transcriptPreview.textContent = response.transcript;
+            transcriptPreview.textContent = finalText;
           }
         }
 
