@@ -4,6 +4,10 @@ let cachedModels = {
 };
 
 async function fetchOpenAIModels(apiKey) {
+  if (!apiKey || apiKey.trim() === '') {
+    return null;
+  }
+
   try {
     const response = await fetch('https://api.openai.com/v1/models', {
       method: 'GET',
@@ -13,23 +17,34 @@ async function fetchOpenAIModels(apiKey) {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        console.error('Invalid OpenAI API key');
+        return null;
+      }
       throw new Error(`Failed to fetch models: ${response.status}`);
     }
 
     const data = await response.json();
 
+    if (!data.data || !Array.isArray(data.data)) {
+      console.error('Unexpected response format from OpenAI API');
+      return null;
+    }
+
     const chatModels = data.data
       .filter(model =>
         model.id.includes('gpt-4') ||
-        model.id.includes('gpt-3.5')
+        model.id.includes('gpt-3.5') ||
+        model.id.includes('o1')
       )
       .sort((a, b) => {
         const priority = {
           'gpt-4o': 1,
           'gpt-4o-mini': 2,
-          'gpt-4-turbo': 3,
-          'gpt-4': 4,
-          'gpt-3.5-turbo': 5
+          'o1': 3,
+          'gpt-4-turbo': 4,
+          'gpt-4': 5,
+          'gpt-3.5-turbo': 6
         };
 
         const getPriority = (id) => {
@@ -45,6 +60,11 @@ async function fetchOpenAIModels(apiKey) {
         value: model.id,
         label: model.id
       }));
+
+    if (chatModels.length === 0) {
+      console.warn('No chat models found in OpenAI API response');
+      return null;
+    }
 
     return chatModels;
   } catch (error) {
@@ -63,6 +83,10 @@ async function fetchClaudeModels(apiKey) {
     { value: 'claude-3-haiku-20240307', label: 'claude-3-haiku-20240307' }
   ];
 
+  if (!apiKey || apiKey.trim() === '') {
+    return defaultModels;
+  }
+
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -80,12 +104,20 @@ async function fetchClaudeModels(apiKey) {
 
     if (response.ok || response.status === 400) {
       return defaultModels;
+    } else if (response.status === 401) {
+      console.error('Invalid Claude API key');
+      return null;
     } else {
-      throw new Error(`API key validation failed: ${response.status}`);
+      console.warn(`Claude API returned status ${response.status}, using default models`);
+      return defaultModels;
     }
   } catch (error) {
     console.error('Error validating Claude API key:', error);
-    return null;
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      console.warn('Network error, using default Claude models');
+      return defaultModels;
+    }
+    return defaultModels;
   }
 }
 
@@ -171,11 +203,23 @@ document.addEventListener('DOMContentLoaded', async function() {
     modelSelect.disabled = true;
 
     let models = null;
+    let errorMessage = '';
 
-    if (provider === 'openai') {
-      models = await fetchOpenAIModels(apiKey);
-    } else if (provider === 'claude') {
-      models = await fetchClaudeModels(apiKey);
+    try {
+      if (provider === 'openai') {
+        models = await fetchOpenAIModels(apiKey);
+        if (!models) {
+          errorMessage = 'Failed to load OpenAI models. Please verify your API key is valid and has access to the models endpoint.';
+        }
+      } else if (provider === 'claude') {
+        models = await fetchClaudeModels(apiKey);
+        if (!models) {
+          errorMessage = 'Failed to validate Claude API key. Please verify your API key is correct.';
+        }
+      }
+    } catch (error) {
+      console.error('Error in fetchAndPopulateModels:', error);
+      errorMessage = `Error: ${error.message}`;
     }
 
     modelSelect.disabled = false;
@@ -190,7 +234,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       }, 2000);
     } else {
       modelSelect.innerHTML = '<option>Failed to load models</option>';
-      showStatus('Failed to load models. Please check your API key.', 'error');
+      showStatus(errorMessage || 'Failed to load models. Please check your API key.', 'error');
     }
   }
 
