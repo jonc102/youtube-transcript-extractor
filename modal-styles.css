@@ -1,0 +1,475 @@
+/* Modal Styles for YouTube Transcript Extractor
+ * Namespace: All classes prefixed with 'yte-' to avoid YouTube conflicts
+ * Theme: Auto-detects light/dark mode
+ */
+
+/* === MODAL CONTAINER === */
+.yte-modal {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 450px;
+  max-height: 600px;
+  background: var(--yte-bg);
+  color: var(--yte-text);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: yte-slide-up 0.3s ease;
+  font-family: 'Roboto', 'Arial', sans-serif;
+  z-index: 999999;
+}
+
+/* === THEME VARIABLES === */
+
+/* Light Theme */
+.yte-modal.yte-light {
+  --yte-bg: #ffffff;
+  --yte-text: #030303;
+  --yte-accent: #065fd4;
+  --yte-border: #e0e0e0;
+  --yte-hover: #f8f8f8;
+  --yte-code-bg: #f5f5f5;
+}
+
+/* Dark Theme */
+.yte-modal.yte-dark {
+  --yte-bg: #212121;
+  --yte-text: #f1f1f1;
+  --yte-accent: #3ea6ff;
+  --yte-border: #3a3a3a;
+  --yte-hover: #2a2a2a;
+  --yte-code-bg: #1a1a1a;
+}
+
+/* === MODAL HEADER === */
+.yte-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--yte-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.yte-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--yte-text);
+  font-family: 'Roboto', 'Arial', sans-serif;
+}
+
+.yte-modal-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.yte-modal-settings {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--yte-text);
+  cursor: pointer;
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.yte-modal-settings:hover {
+  background: var(--yte-hover);
+}
+
+.yte-modal-settings:focus {
+  outline: 2px solid var(--yte-accent);
+  outline-offset: 2px;
+}
+
+.yte-modal-close {
+  background: none;
+  border: none;
+  font-size: 32px;
+  line-height: 32px;
+  color: var(--yte-text);
+  cursor: pointer;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.yte-modal-close:hover {
+  background: var(--yte-hover);
+}
+
+.yte-modal-close:focus {
+  outline: 2px solid var(--yte-accent);
+  outline-offset: 2px;
+}
+
+/* === MODAL TABS === */
+.yte-modal-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 24px 0;
+  border-bottom: 1px solid var(--yte-border);
+  flex-shrink: 0;
+}
+
+.yte-tab-btn {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--yte-text);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  opacity: 0.7;
+  font-family: 'Roboto', 'Arial', sans-serif;
+}
+
+.yte-tab-btn.yte-active {
+  border-bottom-color: var(--yte-accent);
+  opacity: 1;
+}
+
+.yte-tab-btn:hover {
+  opacity: 1;
+  background: var(--yte-hover);
+}
+
+.yte-tab-btn:focus {
+  outline: 2px solid var(--yte-accent);
+  outline-offset: -2px;
+}
+
+/* === MODAL CONTENT === */
+.yte-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  min-height: 300px;
+}
+
+.yte-tab-content {
+  display: none;
+}
+
+.yte-tab-content.yte-active {
+  display: block;
+  animation: yte-fade-in 0.2s ease;
+}
+
+/* === TRANSCRIPT TEXT === */
+.yte-transcript-text {
+  font-family: 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  color: var(--yte-text);
+}
+
+/* === SUMMARY TEXT === */
+.yte-summary-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--yte-text);
+}
+
+/* Markdown styling in summary */
+.yte-summary-text h1,
+.yte-summary-text h2,
+.yte-summary-text h3 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  color: var(--yte-text);
+  font-weight: 600;
+}
+
+.yte-summary-text h1 {
+  font-size: 24px;
+}
+
+.yte-summary-text h2 {
+  font-size: 20px;
+}
+
+.yte-summary-text h3 {
+  font-size: 16px;
+}
+
+.yte-summary-text ul,
+.yte-summary-text ol {
+  padding-left: 24px;
+  margin: 0.5em 0;
+}
+
+.yte-summary-text li {
+  margin: 0.25em 0;
+}
+
+.yte-summary-text code {
+  background: var(--yte-code-bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.yte-summary-text pre {
+  background: var(--yte-code-bg);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.yte-summary-text pre code {
+  background: none;
+  padding: 0;
+}
+
+.yte-summary-text strong {
+  font-weight: 600;
+}
+
+.yte-summary-text em {
+  font-style: italic;
+}
+
+.yte-summary-text br {
+  display: block;
+  content: "";
+  margin: 0.5em 0;
+}
+
+/* === MODAL FOOTER === */
+.yte-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--yte-border);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* === BUTTONS === */
+.yte-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Roboto', 'Arial', sans-serif;
+}
+
+.yte-btn:focus {
+  outline: 2px solid var(--yte-accent);
+  outline-offset: 2px;
+}
+
+.yte-btn-primary {
+  background: var(--yte-accent);
+  color: white;
+}
+
+.yte-btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.yte-btn-primary:active {
+  filter: brightness(0.9);
+}
+
+.yte-btn-secondary {
+  background: var(--yte-hover);
+  color: var(--yte-text);
+  border: 1px solid var(--yte-border);
+}
+
+.yte-btn-secondary:hover {
+  background: var(--yte-border);
+}
+
+.yte-btn-secondary:active {
+  opacity: 0.8;
+}
+
+/* === TOAST NOTIFICATIONS === */
+.yte-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  background: #2a2a2a;
+  color: white;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000000;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  font-family: 'Roboto', 'Arial', sans-serif;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.yte-toast.yte-show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.yte-toast-success {
+  background: #0f9d58;
+}
+
+.yte-toast-error {
+  background: #d93025;
+}
+
+.yte-toast-info {
+  background: #1a73e8;
+}
+
+/* === CUSTOM SCROLLBAR === */
+.yte-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.yte-modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.yte-modal-content::-webkit-scrollbar-thumb {
+  background: var(--yte-border);
+  border-radius: 4px;
+}
+
+.yte-modal-content::-webkit-scrollbar-thumb:hover {
+  background: var(--yte-accent);
+}
+
+/* === ANIMATIONS === */
+@keyframes yte-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes yte-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .yte-modal {
+    bottom: 0;
+    right: 0;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .yte-modal-header {
+    padding: 16px 20px;
+  }
+
+  .yte-modal-header h2 {
+    font-size: 18px;
+  }
+
+  .yte-modal-tabs {
+    padding: 8px 20px 0;
+  }
+
+  .yte-tab-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .yte-modal-content {
+    padding: 20px;
+  }
+
+  .yte-modal-footer {
+    padding: 12px 20px;
+    flex-direction: column;
+  }
+
+  .yte-btn {
+    width: 100%;
+  }
+
+  .yte-toast {
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+  }
+}
+
+/* === ERROR STATE === */
+.yte-error-message {
+  color: #d93025;
+  background: rgba(217, 48, 37, 0.1);
+  padding: 16px;
+  border-radius: 8px;
+  border-left: 4px solid #d93025;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* === LOADING STATE === */
+.yte-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--yte-text);
+  opacity: 0.7;
+}
+
+.yte-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--yte-border);
+  border-top-color: var(--yte-accent);
+  border-radius: 50%;
+  animation: yte-spin 0.8s linear infinite;
+  margin-right: 12px;
+}
+
+@keyframes yte-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

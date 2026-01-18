@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   extractBtn.addEventListener('click', async function() {
     // Clear previous status and preview
-    statusText.textContent = 'Extracting transcript...';
+    statusText.textContent = 'Opening modal...';
     statusDiv.className = 'status info';
     copyTranscriptBtn.style.display = 'none';
     transcriptPreview.textContent = '';
@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Get the active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-      // Check if we're on a YouTube page
+      // Check if we're on a YouTube video page
       if (!tab.url.includes('youtube.com/watch')) {
         statusText.textContent = 'Please open a YouTube video page.';
         statusDiv.className = 'status error';
@@ -138,22 +138,37 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      // Inject content script if not already loaded
+      // Extract video ID from URL
+      const url = new URL(tab.url);
+      const videoId = url.searchParams.get('v');
+
+      if (!videoId) {
+        statusText.textContent = 'Could not find video ID in URL.';
+        statusDiv.className = 'status error';
+        extractBtn.disabled = false;
+        return;
+      }
+
+      // Inject content scripts if needed (manifest already loads most, but just in case)
       try {
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           files: ['content.js']
         });
       } catch (injectionError) {
-        // Content script might already be injected, that's okay
+        // Content scripts might already be injected via manifest, that's okay
         console.log('Content script injection:', injectionError.message);
       }
 
-      // Wait a moment for script to be ready
+      // Wait a moment for scripts to be ready
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Send message to content script to extract transcript
-      chrome.tabs.sendMessage(tab.id, { action: 'getTranscript' }, async function(response) {
+      // Send message to content script to open modal
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'openTranscriptModal',
+        videoId: videoId,
+        source: 'extension-icon'
+      }, function(response) {
         if (chrome.runtime.lastError) {
           statusText.textContent = 'Error: ' + chrome.runtime.lastError.message;
           statusDiv.className = 'status error';
@@ -168,55 +183,20 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
         }
 
-        if (response.error) {
-          statusText.textContent = response.error;
+        if (response.success) {
+          // Success - modal opened on the page
+          statusText.textContent = 'Modal opened on video page!';
+          statusDiv.className = 'status success';
+
+          // Close popup after short delay
+          setTimeout(() => {
+            window.close();
+          }, 500);
+        } else {
+          statusText.textContent = 'Error: ' + (response.error || 'Failed to open modal');
           statusDiv.className = 'status error';
           extractBtn.disabled = false;
-          return;
         }
-
-        if (response.success && response.transcript) {
-          originalTranscript = response.transcript; // Store the original
-          let finalText = response.transcript;
-
-          try {
-            const settings = await chrome.storage.sync.get([
-              'apiProvider',
-              'apiKey',
-              'customPrompt',
-              'model'
-            ]);
-
-            if (settings.apiProvider && settings.apiKey && settings.customPrompt) {
-              statusText.textContent = 'Processing with AI...';
-              statusDiv.className = 'status info';
-
-              try {
-                finalText = await processTranscriptWithAI(response.transcript, settings);
-                statusText.textContent = 'AI processing complete! Result copied to clipboard.';
-                copyTranscriptBtn.style.display = 'inline-block'; // Show the button
-              } catch (apiError) {
-                console.error('API error:', apiError);
-                statusText.textContent = 'AI processing failed: ' + apiError.message + '. Original transcript copied instead.';
-                statusDiv.className = 'status error';
-              }
-            } else {
-              statusText.textContent = 'Transcript copied to clipboard!';
-            }
-
-            await navigator.clipboard.writeText(finalText);
-            statusDiv.className = 'status success';
-
-            // Show full text in preview with formatting
-            transcriptPreview.innerHTML = markdownToHtml(finalText);
-          } catch (clipboardError) {
-            statusText.textContent = 'Failed to copy to clipboard: ' + clipboardError.message;
-            statusDiv.className = 'status error';
-            transcriptPreview.innerHTML = markdownToHtml(finalText);
-          }
-        }
-
-        extractBtn.disabled = false;
       });
 
     } catch (error) {
