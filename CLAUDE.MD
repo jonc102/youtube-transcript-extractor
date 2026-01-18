@@ -1,468 +1,353 @@
-# YouTube Transcript Extractor - Technical Documentation
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-YouTube Transcript Extractor is a Chrome browser extension that extracts transcripts from YouTube videos and optionally processes them using AI (OpenAI or Claude) with custom prompts. It automates the process of accessing YouTube's transcript panel, formatting the content, and applying AI transformations based on user-defined prompts.
+YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 2.0.0
-**Platform:** Chrome Extension (Manifest V3)
-**Current Branch:** v1.1-timestamp
+**Current Version:** 2.2.0
+**Branch Strategy:** Main branch for PRs is `v1.1-timestamp`
 
-## Architecture
+## Development Workflow
 
-### Extension Type
-- **Manifest Version:** 3 (Chrome's latest extension format)
-- **Architecture Pattern:** Popup + Settings Page + Content Script + API Integration
-- **Communication:** Message passing between popup and content script
-- **Storage:** Chrome sync storage for API keys and settings
-- **External APIs:** OpenAI and Claude (Anthropic) REST APIs
+### Zero-Build Architecture
 
-### Key Components
+This extension has **no build process**:
+- No `package.json`, no npm dependencies, no bundler
+- All JavaScript is vanilla ES6
+- Direct file editing workflow
+- No transpilation or compilation
 
-#### 1. Manifest (manifest.json:1-34)
-Defines the extension configuration, permissions, and metadata.
+### Loading the Extension
 
-**Permissions:**
-- `activeTab` - Access to the currently active tab
-- `scripting` - Dynamic script injection capability
-- `clipboardWrite` - Write access to clipboard
-- `storage` - Persistent storage for API keys and settings
-- `host_permissions` - Limited to youtube.com domain
+1. Navigate to `chrome://extensions/`
+2. Enable "Developer mode" (top-right toggle)
+3. Click "Load unpacked"
+4. Select the repository folder
+5. Extension loads immediately
 
-**Icons:** 16px, 48px, and 128px PNG files
+### Reloading During Development
 
-#### 2. Popup Interface
-**Files:** `popup.html`, `popup.css`, `popup.js`
+After editing any files:
+1. Go to `chrome://extensions/`
+2. Click the reload icon on the extension card
+3. If you modified `content.js`, also refresh the YouTube page
 
-The popup provides the main user interface when clicking the extension icon. Features:
-- "Extract & Copy Transcript" button
-- Settings button (gear icon) to access configuration
-- Status messages (info/error/success states)
-- Preview area showing first 300 characters of extracted/processed transcript
+### Debugging
 
-**Key Functions (popup.js):**
-- Validates user is on a YouTube video page (popup.js:18)
-- Injects content script dynamically (popup.js:27-30)
-- Sends messages to content script to trigger extraction (popup.js:40)
-- Loads settings from Chrome storage (popup.js:66-71)
-- Conditionally processes transcript with AI if configured (popup.js:73-84)
-- Handles clipboard operations (popup.js:89)
-- Displays preview and status feedback
+**Popup (popup.js):**
+- Right-click extension icon → "Inspect popup"
+- Opens dedicated DevTools instance for popup
 
-#### 3. Settings Interface
-**Files:** `settings.html`, `settings.css`, `settings.js`
+**Settings Page (settings.js):**
+- Right-click on settings page → "Inspect"
+- Check Network tab for API calls
+- Check Application → Storage → Chrome Sync for saved settings
 
-Complete settings management interface for API configuration. Features:
-- API provider selection (None, OpenAI, Claude)
-- API key input with show/hide toggle
-- Custom prompt textarea
-- Dynamic model selection with refresh capability
-- Save and clear settings functionality
+**Content Script (content.js):**
+- Open YouTube page
+- Press F12 to open DevTools
+- Check Console tab for content script logs
 
-**Key Functions (settings.js):**
-- `fetchOpenAIModels()` (settings.js:6-54) - Fetches available models from OpenAI API
-- `fetchClaudeModels()` (settings.js:56-90) - Validates Claude API key and returns model list
-- `fetchAndPopulateModels()` (settings.js:144-175) - Fetches and populates model dropdown
-- Auto-loads models when API key is entered (settings.js:136-142)
-- Saves settings to Chrome sync storage (settings.js:222-260)
-- Loads settings on page open (settings.js:187-220)
+**Background Service Worker (background.js):**
+- Go to `chrome://extensions/`
+- Click "service worker" link under the extension
+- Opens dedicated DevTools instance for background worker
 
-#### 4. API Integration Module
-**File:** `api.js`
+### Icon Generation (Optional)
 
-Handles communication with OpenAI and Claude APIs.
-
-**Key Functions:**
-- `callOpenAI()` (api.js:1-35) - Makes requests to OpenAI chat completions API
-- `callClaude()` (api.js:37-69) - Makes requests to Claude messages API
-- `processTranscriptWithAI()` (api.js:71-94) - Main function that routes to appropriate API
-
-**API Parameters:**
-- OpenAI: Uses `gpt-4o` and related models, temperature 0.7, max_tokens 4000
-- Claude: Uses `claude-3-5-sonnet` and related models, max_tokens 4096
-
-#### 5. Content Script (content.js:1-121)
-Runs on all YouTube pages and handles the actual transcript extraction.
-
-**Main Function:** `getTranscript()` (content.js:4-110)
-
-**Extraction Process:**
-1. Extracts video ID from URL parameters (content.js:7-8)
-2. Checks if transcript panel is already open (content.js:15)
-3. If not open, attempts to open it automatically:
-   - Clicks "More actions" button (content.js:27-31)
-   - Finds and clicks "Show transcript" menu item (content.js:38-51)
-4. Locates transcript segment elements (content.js:65)
-5. Extracts timestamp and text from each segment (content.js:74-95)
-6. Formats as `[timestamp] text` per line (content.js:90)
-
-**Selectors Used:**
-- Transcript segments: `ytd-transcript-segment-renderer`
-- Timestamps: `.segment-timestamp`
-- Text content: `.segment-text` or `yt-formatted-string.segment-text`
-
-**Message Listener:** (content.js:113-120)
-Listens for `getTranscript` action from popup and responds with transcript data or error.
-
-## Data Flow
-
-### Basic Extraction Flow (No AI)
+If modifying icons:
+```bash
+python3 create_icons.py
 ```
-User clicks extension icon
-    → popup.html opens
-    → User clicks "Extract & Copy Transcript"
-    → popup.js validates YouTube video page
-    → popup.js injects content.js (if needed)
-    → popup.js sends message: { action: 'getTranscript' }
-    → content.js receives message
-    → content.js opens transcript panel (if needed)
-    → content.js extracts segments
-    → content.js formats transcript text
-    → content.js responds with { success: true, transcript: "...", videoId: "..." }
-    → popup.js copies to clipboard
-    → popup.js shows preview and success message
-```
+Generates icon16.png, icon48.png, icon128.png from RGB data.
 
-### AI Processing Flow (With Settings Configured)
-```
-User clicks extension icon
-    → popup.html opens
-    → User clicks "Extract & Copy Transcript"
-    → popup.js validates YouTube video page
-    → popup.js injects content.js (if needed)
-    → popup.js sends message: { action: 'getTranscript' }
-    → content.js extracts and returns transcript
-    → popup.js checks Chrome storage for API settings
-    → IF settings exist:
-        → popup.js calls processTranscriptWithAI()
-        → api.js sends request to OpenAI or Claude API
-        → API processes transcript with custom prompt
-        → api.js returns AI-generated result
-        → popup.js copies AI result to clipboard
-    → ELSE:
-        → popup.js copies original transcript to clipboard
-    → popup.js shows preview and success message
-```
+## Architecture Overview
 
-### Settings Configuration Flow
-```
-User clicks gear icon in popup
-    → settings.html opens
-    → User selects API provider
-    → User enters API key
-    → settings.js auto-fetches available models (on blur)
-    → settings.js populates model dropdown
-    → User enters custom prompt
-    → User selects model
-    → User clicks "Save Settings"
-    → settings.js saves to Chrome sync storage
-    → Settings persist across browser sessions
-```
-
-## File Structure
+### Component Structure
 
 ```
-youtube-transcript-extractor/
-├── manifest.json          # Extension configuration
-├── popup.html            # Popup UI structure
-├── popup.css             # Popup styling
-├── popup.js              # Popup logic and clipboard handling
-├── settings.html         # Settings page UI structure
-├── settings.css          # Settings page styling
-├── settings.js           # Settings management and model fetching
-├── api.js                # OpenAI and Claude API integration
-├── content.js            # YouTube page script for extraction
-├── icon.svg              # Source icon (SVG)
-├── icon16.png            # 16x16 icon
-├── icon48.png            # 48x48 icon
-├── icon128.png           # 128x128 icon
-├── create_icons.py       # Python script to generate PNG icons
-├── README.md             # User-facing documentation
-└── CLAUDE.MD             # This file (technical documentation)
+manifest.json          # Extension configuration (permissions, content scripts, background worker)
+├── popup.html/css/js       # Main UI (extract button, preview)
+├── settings.html/css/js    # Settings UI (API keys, prompts, models)
+├── content.js              # Runs on YouTube pages (extracts transcripts)
+├── api.js                  # Popup-side API wrapper (routes to background.js)
+├── background.js           # Service worker (CORS bypass for API calls)
+└── create_icons.py         # Icon generator
 ```
 
-## Current Features (v2.0.0)
+### Message Passing Architecture
 
-### Core Extraction Features
-1. **Automatic Transcript Panel Opening**
-   - Detects if transcript is closed
-   - Automatically opens "More actions" menu
-   - Clicks "Show transcript" option
+The extension uses three message channels:
 
-2. **Timestamp Preservation**
-   - Extracts both timestamp and text from each segment
-   - Formats as `[timestamp] text` (e.g., `[0:00] First line`)
+**Channel 1: Popup ↔ Content Script**
+```javascript
+// popup.js sends to content.js
+chrome.tabs.sendMessage(tabId, { action: 'getTranscript' });
 
-3. **One-Click Copy**
-   - Automatic clipboard copy on successful extraction
-   - No manual selection needed
+// content.js responds
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'getTranscript') {
+    getTranscript().then(result => sendResponse(result));
+    return true; // CRITICAL: Keep channel open for async response
+  }
+});
+```
 
-4. **Preview Display**
-   - Shows first 300 characters in popup
-   - Full transcript or AI-processed result available in clipboard
+Response format: `{ success: true, transcript: "...", videoId: "..." }`
 
-5. **Error Handling**
-   - Validates YouTube video page
-   - Checks for transcript availability
-   - Provides user-friendly error messages
+**Channel 2: Popup/Settings ↔ Background Worker**
+```javascript
+// api.js or settings.js sends to background.js
+chrome.runtime.sendMessage({
+  action: 'callOpenAI',  // or 'callClaude', 'fetchOpenAIModels', 'fetchClaudeModels'
+  apiKey, model, prompt, transcript
+});
 
-### AI Processing Features (v2.0.0)
-1. **Settings Panel**
-   - Dedicated settings page accessible via gear icon
-   - Clean, intuitive interface for configuration
-   - Back button to return to main popup
+// background.js responds
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'callOpenAI') {
+    callOpenAI(...).then(result => sendResponse({ success: true, result }));
+    return true; // CRITICAL: Keep channel open for async response
+  }
+});
+```
 
-2. **API Provider Support**
-   - OpenAI (GPT models)
-   - Claude (Anthropic models)
-   - Option to use neither (extract only)
+**Channel 3: Background Worker ↔ External APIs**
+```javascript
+// background.js makes direct fetch() calls
+fetch('https://api.openai.com/v1/chat/completions', {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${apiKey}` }
+});
+```
 
-3. **API Key Management**
-   - Secure storage in Chrome sync storage
-   - Show/hide toggle for API key visibility
-   - Keys sync across Chrome browsers (encrypted by Chrome)
+**Why background.js exists:** Content scripts and popup/settings pages cannot make cross-origin API requests due to CORS. The background service worker bypasses this restriction.
 
-4. **Dynamic Model Selection**
-   - Automatically fetches available models from API
-   - OpenAI: Queries `/v1/models` endpoint and filters for chat models
-   - Claude: Validates API key and provides curated model list
-   - Refresh button to reload models manually
-   - Models cached to avoid repeated API calls
+### Critical Pattern: Async Message Responses
 
-5. **Custom Prompts**
-   - User-defined prompts for AI processing
-   - Transcript automatically appended to prompt
-   - Supports any use case: summarization, translation, analysis, etc.
+ALL message listeners that respond asynchronously **must** return `true`:
 
-6. **Conditional Processing**
-   - Only processes with AI if settings are configured
-   - Falls back to original transcript on API errors
-   - Clear status messages for each stage
+```javascript
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  asyncFunction()
+    .then(result => sendResponse(result))
+    .catch(error => sendResponse({ error }));
+  return true; // Without this, Chrome closes the channel before async response
+});
+```
 
-## Known Limitations
+## Key Components
 
-1. **YouTube UI Dependency**
-   - Relies on YouTube's DOM structure
-   - Selector changes in YouTube updates may break functionality
-   - Multiple fallback selectors implemented to improve resilience
+### background.js (Service Worker)
 
-2. **Transcript Availability**
-   - Only works if video has captions/subtitles
-   - Creator-disabled transcripts cannot be extracted
+Acts as a CORS bypass proxy for API calls. Implements:
 
-3. **Timing Delays**
-   - Uses fixed delays (800ms, 1500ms) for UI interactions
-   - May not work on slow connections or devices
+- `fetchOpenAIModels(apiKey)` - Fetches models from OpenAI `/v1/models` endpoint, filters for GPT-4/3.5/O1 models
+- `fetchClaudeModels(apiKey)` - Validates Claude API key with test request, returns hardcoded model list
+- `callOpenAI(apiKey, model, prompt, transcript)` - Calls OpenAI chat completions (temperature 0.7, max_tokens 4000)
+- `callClaude(apiKey, model, prompt, transcript)` - Calls Claude messages API (max_tokens 4096)
 
-4. **YouTube Video Pages Only**
-   - Only activates on `/watch?v=` URLs
-   - Doesn't work on playlists, channels, or homepage
+All functions use `fetch()` with proper authentication headers.
 
-5. **API Limitations (v2.0.0)**
-   - Requires user to have their own API keys
-   - API costs are user's responsibility
-   - Rate limits depend on user's API plan
-   - Large transcripts may hit token limits (4000-4096 tokens)
-   - Claude model list endpoint not public (uses hardcoded list)
+### content.js (YouTube Transcript Extraction)
 
-## Development Notes
+Extracts transcripts from YouTube's DOM:
 
-### Branch Strategy
-- **main** - Initial development branch
-- **stable** - Stable release branch (main branch for PRs)
-- **v1.1-timestamp** - Current feature branch (adds timestamp support)
-- **v2** - Future version (separate worktree)
+1. Checks if transcript panel is open
+2. If not, clicks "More actions" button → "Show transcript" menu item
+3. Uses fixed delays (800ms, 1500ms) to wait for UI updates
+4. Queries transcript segments: `ytd-transcript-segment-renderer`
+5. Extracts timestamp and text from each segment
+6. Formats as `[timestamp] text` per line
 
-### Version History
-**v2.0.0** (2026-01-09) - Major Feature Release
-- Added settings panel with gear icon
-- Implemented OpenAI and Claude API integration
-- Added custom prompt functionality
-- Dynamic model fetching from API endpoints
-- Secure API key storage in Chrome sync storage
-- Conditional AI processing based on settings
-- Model caching and refresh capability
-- Comprehensive error handling for API calls
+**Multiple selector fallbacks** for YouTube UI resilience:
+```javascript
+const timestampElement = segment.querySelector('.segment-timestamp') ||
+                        segment.querySelector('[class*="segment-timestamp"]') ||
+                        segment.querySelector('div[class*="cue-group"] div[class*="cue"]:first-child');
+```
+
+### popup.js (Main UI Logic)
+
+Flow:
+1. Validates user is on YouTube `/watch?v=` page
+2. Injects `content.js` dynamically if needed
+3. Sends `{ action: 'getTranscript' }` message to content script
+4. Receives transcript data
+5. Loads settings from Chrome storage (`chrome.storage.sync.get()`)
+6. If API configured, calls `processTranscriptWithAI()` via `api.js`
+7. Copies result to clipboard (`navigator.clipboard.writeText()`)
+8. Displays preview (first 300 chars with markdown rendering)
+
+### settings.js (Settings Management)
+
+**Model Caching Pattern:**
+```javascript
+let cachedModels = { openai: null, claude: null };
+
+// Only fetch if not cached or force refresh
+if (!forceRefresh && cachedModels[provider]) {
+  populateModelSelect(cachedModels[provider]);
+  return;
+}
+```
+
+**Auto-fetch on API key blur:**
+When user enters API key and moves to next field, automatically fetches available models.
+
+**Claude Model List:**
+Hardcoded in two places (settings.js and background.js) because Claude doesn't expose a public models endpoint.
+
+Current models (as of v2.2.0):
+- claude-opus-4-5-20251101 (Latest)
+- claude-sonnet-4-5-20250929
+- claude-haiku-4-5-20251001
+- claude-3-7-sonnet-20250219
+- claude-3-5-sonnet-20241022/20240620
+- claude-3-5-haiku-20241022
+- claude-3-opus/sonnet/haiku-202402xx
+
+### api.js (API Client Wrapper)
+
+Thin wrapper that routes API calls from popup.js to background.js:
+
+```javascript
+async function processTranscriptWithAI(apiProvider, apiKey, model, prompt, transcript) {
+  if (apiProvider === 'openai') {
+    return chrome.runtime.sendMessage({ action: 'callOpenAI', ... });
+  } else if (apiProvider === 'claude') {
+    return chrome.runtime.sendMessage({ action: 'callClaude', ... });
+  }
+}
+```
+
+## Critical Code Patterns
+
+### Chrome Storage (Sync)
+
+Settings persist across Chrome browsers (encrypted by Chrome):
+
+```javascript
+// Save
+chrome.storage.sync.set({
+  apiProvider: 'openai',
+  apiKey: 'sk-...',
+  customPrompt: '...',
+  model: 'gpt-4o'
+});
+
+// Load
+const settings = await chrome.storage.sync.get([
+  'apiProvider', 'apiKey', 'customPrompt', 'model'
+]);
+```
+
+### YouTube DOM Resilience
+
+Always use multiple fallback selectors:
+
+```javascript
+const button = document.querySelector('button[aria-label="More actions"]') ||
+               document.querySelector('button[aria-label*="More"]') ||
+               document.querySelector('ytd-menu-renderer button');
+```
+
+YouTube frequently updates their DOM structure. Multiple selectors increase resilience.
+
+### Fixed Timing Delays
+
+Current implementation uses `setTimeout()` with fixed delays:
+- 800ms after clicking "More actions"
+- 1500ms after clicking "Show transcript"
+
+These may fail on slow connections. Consider using `MutationObserver` for more robust implementation.
+
+## Version History
+
+**v2.2.0** (2026-01-18) - Current
+- API key fixes
+- Updated model lists
+
+**v2.0.0** (2026-01-09) - Major Release
+- Settings panel with gear icon
+- OpenAI and Claude API integration
+- Custom prompt functionality
+- Dynamic model fetching
+- Model caching
 
 **v1.1-timestamp**
-- Added timestamp extraction to transcript output
-- Updated icons
+- Added timestamp extraction
 - Enhanced error handling
 
 **v1.0.0** - Initial Release
 - Basic transcript extraction
 - One-click copy to clipboard
-- Preview functionality
 
-### Testing Checklist
-When making changes, test:
+## Versioning
+
+Semantic versioning (MAJOR.MINOR.PATCH):
+- **MAJOR** (x.0.0): Breaking changes
+- **MINOR** (x.y.0): New features
+- **PATCH** (x.y.z): Bug fixes
+
+Increment by 0.0.1 for patches, 0.1.0 for features.
+
+## Testing Checklist
+
+Manual testing required (no automated tests):
+
 - [ ] Extension loads without errors
 - [ ] Popup opens on YouTube video pages
 - [ ] Settings button opens settings page
-- [ ] Extract button triggers transcript extraction
-- [ ] Transcript panel opens automatically if closed
-- [ ] Timestamps are correctly extracted and formatted
-- [ ] Text is copied to clipboard successfully
+- [ ] Transcript extraction works (try TED Talks, music videos)
+- [ ] Timestamps formatted correctly `[0:00] text`
+- [ ] Clipboard copy works
 - [ ] Preview displays in popup
-- [ ] Error messages show for videos without transcripts
-- [ ] Works on various YouTube video types (different caption sources)
+- [ ] Error messages for videos without transcripts
 - [ ] Settings persist after saving
 - [ ] API keys load correctly when reopening settings
-- [ ] Models fetch automatically when API key is entered
-- [ ] Refresh button reloads models
+- [ ] Models fetch automatically when API key entered
 - [ ] AI processing works with valid API keys
 - [ ] Fallback to original transcript on API errors
 - [ ] Clear settings removes all stored data
 
-### Common Development Tasks
+## Known Limitations
 
-**Reload Extension:**
-1. Navigate to `chrome://extensions/`
-2. Click reload icon on extension card
+1. **YouTube UI Dependency:** Relies on specific DOM selectors that may break when YouTube updates
+2. **Fixed Timing Delays:** 800ms/1500ms delays may not work on slow connections
+3. **Only `/watch?v=` URLs:** Doesn't work on playlists, channels, homepage
+4. **Claude Model List Hardcoded:** No public API endpoint, must update manually when new models release
+5. **Token Limits:** OpenAI max_tokens=4000, Claude max_tokens=4096 - long transcripts may be truncated
 
-**Debug Content Script:**
-- Open DevTools on YouTube page (F12)
-- Check Console tab for errors
-- Use `console.log()` in content.js
+## Security Notes
 
-**Debug Popup:**
-- Right-click extension icon → "Inspect popup"
-- Use popup's separate DevTools instance
+**Permissions:**
+- `activeTab` - Access current tab only
+- `scripting` - Inject content.js dynamically
+- `clipboardWrite` - Copy transcripts
+- `storage` - Chrome sync storage (encrypted)
+- Host permissions: youtube.com, api.openai.com, api.anthropic.com
 
-**Debug Settings Page:**
-- Right-click on settings page → "Inspect"
-- Check Network tab for API calls
-- Verify Chrome storage in Application tab
-
-**Test Transcript Extraction:**
-Use YouTube videos with known good transcripts:
-- TED Talks (usually have high-quality captions)
-- Official music videos
-- Educational content
-
-**Test API Integration:**
-- Use test API keys from provider dashboards
-- Test with various transcript lengths
-- Verify error handling with invalid keys
-- Check rate limiting behavior
-
-## Potential Improvements
-
-### Robustness
-- [ ] Add MutationObserver to wait for transcript elements instead of fixed delays
-- [ ] Implement retry logic with exponential backoff
-- [ ] Add more fallback selectors for YouTube UI variations
-- [ ] Support for auto-generated vs manual captions detection
-
-### Features
-- [ ] Language selection for multi-language transcripts
-- [ ] Option to exclude/include timestamps
-- [ ] Download transcript as .txt file
-- [ ] Support for timestamp formats (HH:MM:SS vs seconds)
-- [ ] Batch extraction for playlists
-- [ ] Search/filter within transcript
-
-### UX Improvements
-- [ ] Progress indicator during extraction
-- [ ] Transcript word count display
-- [ ] Copy confirmation animation
-- [ ] Dark mode support for popup
-- [ ] Keyboard shortcuts
-
-### Code Quality
-- [ ] Add JSDoc comments
-- [ ] Implement unit tests
-- [ ] Add error logging/telemetry (privacy-respecting)
-- [ ] Modularize code into separate utility files
-
-## Security Considerations
-
-### Permissions
-- `activeTab` - Access to the currently active tab only
-- `scripting` - Dynamic script injection for content script
-- `clipboardWrite` - Write access to clipboard for copying transcripts
-- `storage` - Chrome sync storage for API keys and settings
-
-### API Key Security
-- API keys stored in Chrome's encrypted sync storage
-- Keys never transmitted to any server except the selected API provider
-- Keys sync across Chrome browsers (encrypted by Chrome's sync)
-- No logging or tracking of API keys
+**API Keys:**
+- Stored in Chrome's encrypted sync storage
+- Never transmitted except to the selected API provider
 - User responsible for key security and rotation
 
-### Network Requests
-- **YouTube:** Content script reads DOM elements only (no API calls)
-- **OpenAI:** Direct HTTPS requests to api.openai.com (user's API key)
-- **Claude:** Direct HTTPS requests to api.anthropic.com (user's API key)
-- No analytics, tracking, or telemetry
-- No third-party services
-- Content script only runs on youtube.com domain
-- No eval() or unsafe code execution
+**No external services:** Extension doesn't send data to any third parties. API calls go directly to OpenAI/Claude.
 
-### Data Privacy
-- Transcripts processed client-side only
-- AI processing happens via direct API calls (not through intermediary servers)
-- No data collected, stored, or transmitted by the extension developer
-- User's API provider (OpenAI/Claude) may log API requests per their policies
+## Git Workflow
 
-## Browser Compatibility
+**Branches:**
+- `v1.1-timestamp` - Main branch for PRs (current stable)
+- `main` - Initial development branch
+- `v2.0`, `v2.0-feature-expansion`, `v3-enhancements` - Feature branches
 
-- **Supported:** Chrome, Edge, Brave (Chromium-based browsers with Manifest V3)
-- **Not Supported:** Firefox (uses different manifest), Safari (different extension system)
-
-## Troubleshooting Guide
-
-### Extension Not Appearing
-- Verify all icon files exist (icon16.png, icon48.png, icon128.png)
-- Check manifest.json syntax
-- Reload extension from chrome://extensions/
-
-### "No transcript found" Error
-- Video may lack captions
-- YouTube UI may have changed (check selectors)
-- Try manually opening transcript first
-- Wait longer after page load
-
-### "Could not establish connection" Error
-- Content script not loaded
-- Reload extension and refresh YouTube page
-- Check for JavaScript errors in console
-
-### Clipboard Copy Fails
-- Browser clipboard permission denied
-- Try manual copy from preview area
-- Check browser clipboard settings
-
-## Performance Notes
-
-- Content script is loaded on all YouTube pages (`document_idle`)
-- Minimal performance impact when idle
-- Main processing only on button click
-- No continuous background processes
-- No service worker running (not needed for this extension)
-
-## Resources
-
-- [Chrome Extension Docs](https://developer.chrome.com/docs/extensions/)
-- [Manifest V3 Migration Guide](https://developer.chrome.com/docs/extensions/mv3/intro/)
-- [YouTube DOM Structure](https://www.youtube.com/) (inspect elements)
-- [OpenAI API Documentation](https://platform.openai.com/docs)
-- [Claude API Documentation](https://docs.anthropic.com)
-
-## Version Numbering
-
-The extension follows semantic versioning (MAJOR.MINOR.PATCH):
-- **MAJOR** version (x.0.0): Breaking changes or complete rewrites
-- **MINOR** version (x.y.0): New features, significant enhancements
-- **PATCH** version (x.y.z): Bug fixes, minor improvements, incrementing by 0.0.1
-
-**Current Version:** 2.0.0
-- v2.0.0 was a major version bump due to significant new features (settings panel, API integration)
-- Future updates will increment by 0.0.1 for patches (2.0.1, 2.0.2, etc.)
-- New features will increment minor version (2.1.0, 2.2.0, etc.)
+**Creating PRs:**
+Pull requests should target `v1.1-timestamp` branch.
 
 ---
 
-**Last Updated:** 2026-01-09
-**Current Version:** 2.0.0
-**For Questions or Contributions:** See README.md
+**Last Updated:** 2026-01-18
+**Current Version:** 2.2.0
