@@ -1,0 +1,267 @@
+// Utility functions for YouTube Transcript Extractor
+// Shared across all content scripts
+
+class Utils {
+  /**
+   * Extract video ID from YouTube URL
+   * @param {string} url - YouTube URL (full or relative)
+   * @returns {string|null} - Video ID or null if not found
+   */
+  static extractVideoId(url) {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.searchParams.get('v');
+    } catch (e) {
+      // Fallback for relative URLs
+      const match = url.match(/[?&]v=([^&]+)/);
+      return match ? match[1] : null;
+    }
+  }
+
+  /**
+   * Get current video ID from window location
+   * @returns {string|null} - Video ID or null
+   */
+  static getCurrentVideoId() {
+    return this.extractVideoId(window.location.href);
+  }
+
+  /**
+   * Format seconds to timestamp (MM:SS or HH:MM:SS)
+   * @param {number} seconds - Time in seconds
+   * @returns {string} - Formatted timestamp
+   */
+  static formatTimestamp(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * Escape HTML to prevent XSS
+   * @param {string} text - Text to escape
+   * @returns {string} - Escaped HTML
+   */
+  static escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  /**
+   * Debounce function calls
+   * @param {Function} func - Function to debounce
+   * @param {number} wait - Wait time in milliseconds
+   * @returns {Function} - Debounced function
+   */
+  static debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  /**
+   * Simple markdown to HTML converter
+   * Supports: headers, bold, italic, lists, code blocks
+   * @param {string} text - Markdown text
+   * @returns {string} - HTML string
+   */
+  static markdownToHtml(text) {
+    let html = text;
+
+    // Escape HTML to prevent XSS
+    html = html.replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;');
+
+    // Split into lines for better processing
+    const lines = html.split('\n');
+    const processed = [];
+    let inList = false;
+    let listType = null;
+    let inCodeBlock = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+
+      // Code blocks
+      if (line.trim().startsWith('```')) {
+        if (inCodeBlock) {
+          processed.push('</code></pre>');
+          inCodeBlock = false;
+        } else {
+          processed.push('<pre><code>');
+          inCodeBlock = true;
+        }
+        continue;
+      }
+
+      if (inCodeBlock) {
+        processed.push(line);
+        continue;
+      }
+
+      // Check for list items
+      const unorderedMatch = line.match(/^[\*\-]\s+(.+)$/);
+      const orderedMatch = line.match(/^\d+\.\s+(.+)$/);
+
+      if (unorderedMatch || orderedMatch) {
+        const content = unorderedMatch ? unorderedMatch[1] : orderedMatch[1];
+        const currentListType = unorderedMatch ? 'ul' : 'ol';
+
+        if (!inList) {
+          processed.push(`<${currentListType}>`);
+          inList = true;
+          listType = currentListType;
+        } else if (listType !== currentListType) {
+          processed.push(`</${listType}>`);
+          processed.push(`<${currentListType}>`);
+          listType = currentListType;
+        }
+
+        processed.push(`<li>${content}</li>`);
+        continue;
+      } else if (inList) {
+        processed.push(`</${listType}>`);
+        inList = false;
+        listType = null;
+      }
+
+      // Headers
+      if (line.startsWith('### ')) {
+        processed.push(`<h3>${line.substring(4)}</h3>`);
+        continue;
+      } else if (line.startsWith('## ')) {
+        processed.push(`<h2>${line.substring(3)}</h2>`);
+        continue;
+      } else if (line.startsWith('# ')) {
+        processed.push(`<h1>${line.substring(2)}</h1>`);
+        continue;
+      }
+
+      // Inline formatting (bold, italic, code)
+      line = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      line = line.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      line = line.replace(/`(.+?)`/g, '<code>$1</code>');
+
+      // Empty lines become <br>
+      if (line.trim() === '') {
+        processed.push('<br>');
+      } else {
+        processed.push(line);
+      }
+    }
+
+    // Close any open lists
+    if (inList) {
+      processed.push(`</${listType}>`);
+    }
+
+    // Close any open code blocks
+    if (inCodeBlock) {
+      processed.push('</code></pre>');
+    }
+
+    return processed.join('\n');
+  }
+
+  /**
+   * Check if device is desktop (not mobile)
+   * @returns {boolean} - True if desktop
+   */
+  static isDesktop() {
+    return window.innerWidth >= 1024 && !navigator.userAgent.includes('Mobile');
+  }
+
+  /**
+   * Check if current page is a YouTube video page
+   * @returns {boolean} - True if on /watch?v= page
+   */
+  static isVideoPage() {
+    return window.location.pathname === '/watch' &&
+           new URLSearchParams(window.location.search).has('v');
+  }
+
+  /**
+   * Get video title from YouTube DOM
+   * @returns {string} - Video title or 'Unknown Video'
+   */
+  static getVideoTitle() {
+    const selectors = [
+      'h1.ytd-watch-metadata yt-formatted-string',
+      'h1.title yt-formatted-string',
+      'ytd-watch-metadata h1',
+      'h1.ytd-video-primary-info-renderer'
+    ];
+
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (el && el.textContent) {
+        return el.textContent.trim();
+      }
+    }
+
+    return 'Unknown Video';
+  }
+
+  /**
+   * Parse transcript segments from raw text
+   * @param {string} rawTranscript - Raw transcript with [timestamp] prefix
+   * @returns {Array} - Array of {timestamp, text} objects
+   */
+  static parseSegments(rawTranscript) {
+    const lines = rawTranscript.split('\n');
+    const segments = [];
+
+    for (const line of lines) {
+      const match = line.match(/^\[([^\]]+)\]\s*(.+)$/);
+      if (match) {
+        segments.push({
+          timestamp: match[1],
+          text: match[2]
+        });
+      } else if (line.trim()) {
+        segments.push({
+          timestamp: '',
+          text: line.trim()
+        });
+      }
+    }
+
+    return segments;
+  }
+
+  /**
+   * Log error with context
+   * @param {string} context - Error context (e.g., 'CacheManager', 'ModalUI')
+   * @param {Error|string} error - Error object or message
+   * @param {Object} metadata - Additional metadata
+   */
+  static logError(context, error, metadata = {}) {
+    const errorData = {
+      timestamp: new Date().toISOString(),
+      context: context,
+      error: error.message || error,
+      stack: error.stack,
+      metadata: metadata,
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    };
+
+    console.error(`[YTE Error - ${context}]`, errorData);
+  }
+}
+
+// Export to window for global access in content scripts
+window.Utils = Utils;

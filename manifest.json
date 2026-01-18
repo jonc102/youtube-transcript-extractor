@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YouTube Transcript Extractor",
-  "version": "2.2.0",
-  "description": "Extract YouTube video transcripts and copy them to clipboard",
+  "version": "3.0.1",
+  "description": "Extract YouTube video transcripts with AI processing and in-page access",
   "permissions": [
     "activeTab",
     "scripting",
@@ -33,7 +33,16 @@
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["content.js"],
+      "js": [
+        "utils.js",
+        "theme-detector.js",
+        "cache-manager.js",
+        "modal-ui.js",
+        "transcript-orchestrator.js",
+        "content.js",
+        "content-injector.js"
+      ],
+      "css": ["modal-styles.css"],
       "run_at": "document_idle"
     }
   ]

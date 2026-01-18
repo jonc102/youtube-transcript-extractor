@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 2.2.0
-**Branch Strategy:** Main branch for PRs is `v1.1-timestamp`
+**Current Version:** 3.0.1
+**Branch Strategy:** Main branch for PRs is `v1.1-timestamp`, feature development on `v3.0`
 
 ## Development Workflow
 
@@ -68,13 +68,20 @@ Generates icon16.png, icon48.png, icon128.png from RGB data.
 ### Component Structure
 
 ```
-manifest.json          # Extension configuration (permissions, content scripts, background worker)
-├── popup.html/css/js       # Main UI (extract button, preview)
-├── settings.html/css/js    # Settings UI (API keys, prompts, models)
-├── content.js              # Runs on YouTube pages (extracts transcripts)
-├── api.js                  # Popup-side API wrapper (routes to background.js)
-├── background.js           # Service worker (CORS bypass for API calls)
-└── create_icons.py         # Icon generator
+manifest.json                    # Extension configuration (permissions, content scripts, background worker)
+├── popup.html/css/js            # Extension popup UI (extract button)
+├── settings.html/css/js         # Settings page (API keys, prompts, models)
+├── api.js                       # Popup-side API wrapper (routes to background.js)
+├── background.js                # Service worker (CORS bypass for API calls)
+└── Content Scripts (run on YouTube pages):
+    ├── utils.js                 # Shared utility functions (logging, HTML escaping, markdown)
+    ├── theme-detector.js        # Detects YouTube light/dark theme
+    ├── cache-manager.js         # Local cache with LRU eviction (10 videos)
+    ├── modal-ui.js              # Modal creation, display, interactions
+    ├── modal-styles.css         # Modal styling with theme support
+    ├── transcript-orchestrator.js  # Unified extraction/caching flow
+    ├── content.js               # YouTube transcript extraction logic
+    └── content-injector.js      # Injects in-page "Get Transcript" button
 ```
 
 ### Message Passing Architecture
@@ -223,6 +230,171 @@ async function processTranscriptWithAI(apiProvider, apiKey, model, prompt, trans
 }
 ```
 
+### v3.0 Components (Content Scripts)
+
+#### utils.js (Shared Utilities)
+
+Provides shared functions for all content scripts:
+- `Utils.logInfo()`, `Utils.logError()` - Namespaced logging
+- `Utils.escapeHtml()` - Sanitizes HTML for safe display
+- `Utils.markdownToHtml()` - Converts markdown to HTML for AI summaries
+- Used by modal-ui.js, transcript-orchestrator.js, and other content scripts
+
+#### theme-detector.js (Theme Detection)
+
+Detects YouTube's current theme (light/dark mode):
+- Checks `html[dark]` attribute on document root
+- Returns boolean `isDark` flag
+- Used by modal-ui.js and content-injector.js for theme-aware styling
+
+```javascript
+const isDark = document.documentElement.hasAttribute('dark');
+```
+
+#### cache-manager.js (Local Cache with LRU Eviction)
+
+Manages local cache for transcripts and AI summaries:
+- Stores up to 10 most recent videos (LRU eviction)
+- Uses Chrome `chrome.storage.local` (not synced across devices)
+- Cache key: video ID
+- Cache entry: `{ videoId, videoTitle, transcript, summary, timestamp }`
+- Methods: `CacheManager.get()`, `CacheManager.set()`, `CacheManager.has()`
+- Automatic eviction of oldest entries when cache exceeds 10 items
+
+**Storage format:**
+```javascript
+{
+  'yte-cache': {
+    'videoId1': { videoId, videoTitle, transcript: {...}, summary: {...}, timestamp },
+    'videoId2': { ... },
+    // ... up to 10 entries
+  }
+}
+```
+
+#### modal-ui.js (Modal UI System)
+
+**v3.0.1 Architecture: Floating Corner Modal (No Overlay)**
+
+Creates and manages a floating modal in the bottom-right corner:
+- **No backdrop overlay** - allows video interaction while modal is open
+- **Fixed positioning:** `bottom: 24px; right: 24px`
+- **Compact size:** 450px width, 600px max height
+- **Mobile responsive:** Full-screen on devices ≤768px
+
+**Key methods:**
+- `ModalUI.createModal(data, isDark)` - Creates floating modal directly in document.body
+- `ModalUI.showLoading(isDark)` - Shows loading spinner while extracting
+- `ModalUI.showError(message, isDark)` - Shows error state
+- `ModalUI.close()` - Removes modal from DOM
+- `ModalUI._switchTab(tabName)` - Switches between Transcript/Summary tabs
+- `ModalUI._copyToClipboard(text, message)` - Copies content and shows toast
+
+**v3.0.1 Features:**
+1. **AI Summary Default Tab:** When `data.summary` exists, AI Summary tab is active by default
+2. **Settings Gear Icon:** Header includes ⚙️ button that opens settings.html in new tab
+3. **Floating Corner Design:** Modal appears in bottom-right without backdrop, keeping video accessible
+
+**Modal structure:**
+```html
+<div class="yte-modal yte-dark">  <!-- Appended directly to document.body -->
+  <div class="yte-modal-header">
+    <h2>📄 Transcript & Summary</h2>
+    <div class="yte-modal-header-actions">
+      <button class="yte-modal-settings">⚙️</button>
+      <button class="yte-modal-close">×</button>
+    </div>
+  </div>
+  <div class="yte-modal-tabs">
+    <button class="yte-tab-btn">Transcript</button>
+    <button class="yte-tab-btn yte-active">AI Summary ✨</button>  <!-- Active if summary exists -->
+  </div>
+  <div class="yte-modal-content">
+    <div class="yte-tab-content">...</div>
+    <div class="yte-tab-content yte-active">...</div>  <!-- AI Summary active by default -->
+  </div>
+  <div class="yte-modal-footer">
+    <button data-action="copy-transcript">Copy Transcript</button>
+    <button data-action="copy-summary">Copy Summary</button>
+  </div>
+</div>
+```
+
+**Close behavior:**
+- Close button (×) - removes modal
+- Escape key - removes modal
+- No click-outside-to-close (no overlay to click)
+
+#### modal-styles.css (Modal Styling)
+
+Styles for the floating corner modal with theme support:
+- CSS variables for light/dark themes
+- `.yte-modal` - Floating corner positioning
+- `.yte-modal-header-actions` - Flex container for settings + close buttons
+- `.yte-modal-settings` - Settings gear icon button
+- `.yte-tab-btn` - Tab buttons with active state
+- `.yte-toast` - Toast notifications for copy feedback
+- Responsive: full-screen on mobile (≤768px)
+
+**Theme variables:**
+```css
+.yte-modal.yte-light {
+  --yte-bg: #ffffff;
+  --yte-text: #030303;
+  --yte-accent: #065fd4;
+  /* ... */
+}
+
+.yte-modal.yte-dark {
+  --yte-bg: #212121;
+  --yte-text: #f1f1f1;
+  --yte-accent: #3ea6ff;
+  /* ... */
+}
+```
+
+#### transcript-orchestrator.js (Unified Extraction Flow)
+
+Orchestrates the entire transcript extraction and display flow:
+
+**Flow:**
+1. Check if video is cached (`CacheManager.has(videoId)`)
+2. If cached: Load from cache and display modal immediately
+3. If not cached: Extract transcript via `content.js`
+4. Save to cache with `CacheManager.set()`
+5. Display modal with transcript (and AI summary if available)
+
+**API:**
+- `TranscriptOrchestrator.extract(videoId, videoTitle)` - Main entry point
+- Returns: `{ success: true/false, data: {...}, fromCache: true/false }`
+
+**Usage:**
+Called by both popup.js (extension icon) and content-injector.js (in-page button)
+
+#### content-injector.js (In-Page Button)
+
+Injects "Get Transcript" button into YouTube sidebar:
+
+**Features:**
+- Desktop only (checks viewport width > 768px)
+- Button appears above related videos in right sidebar
+- Uses MutationObserver to detect navigation (YouTube is SPA)
+- Button text changes based on cache state:
+  - "📄 Get Transcript" - First time (not cached)
+  - "📄 View Transcript" - Cached (instant load)
+- Clicking button calls `TranscriptOrchestrator.extract()`
+
+**Button placement:**
+```javascript
+const relatedContainer = document.querySelector('#related');
+if (relatedContainer) {
+  relatedContainer.insertAdjacentElement('beforebegin', button);
+}
+```
+
+**Navigation detection:**
+Uses MutationObserver on `ytd-app` to detect YouTube's client-side navigation and re-inject button on new videos.
+
 ## Critical Code Patterns
 
 ### Chrome Storage (Sync)
@@ -266,7 +438,22 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
 
 ## Version History
 
-**v2.2.0** (2026-01-18) - Current
+**v3.0.1** (2026-01-18) - Current
+- AI Summary tab as default when summary exists
+- Settings gear icon in modal header
+- Floating corner modal (no backdrop overlay)
+- Video remains accessible while modal open
+
+**v3.0.0** (2026-01-18) - Major Release
+- In-page "Get Transcript" button (desktop sidebar)
+- Smart caching system (10 most recent videos, LRU eviction)
+- Modern modal UI with tabs (Transcript/AI Summary)
+- Dual entry points (in-page button + extension icon)
+- Theme detection (auto light/dark mode)
+- Content script architecture with modular components
+- Instant loading for cached transcripts
+
+**v2.2.0** (2026-01-18)
 - API key fixes
 - Updated model lists
 
@@ -298,18 +485,50 @@ Increment by 0.0.1 for patches, 0.1.0 for features.
 
 Manual testing required (no automated tests):
 
+### Core Functionality
 - [ ] Extension loads without errors
-- [ ] Popup opens on YouTube video pages
-- [ ] Settings button opens settings page
 - [ ] Transcript extraction works (try TED Talks, music videos)
 - [ ] Timestamps formatted correctly `[0:00] text`
-- [ ] Clipboard copy works
-- [ ] Preview displays in popup
 - [ ] Error messages for videos without transcripts
+
+### Dual Entry Points (v3.0)
+- [ ] In-page button appears in sidebar (desktop only)
+- [ ] In-page button text: "📄 Get Transcript" (first time)
+- [ ] In-page button text: "📄 View Transcript" (cached)
+- [ ] Extension icon popup opens on YouTube video pages
+- [ ] Both entry points open the same modal on YouTube page
+
+### Modal UI (v3.0.1)
+- [ ] Modal appears in bottom-right corner (not centered)
+- [ ] No dark backdrop overlay present
+- [ ] Video player remains clickable and playable with modal open
+- [ ] AI Summary tab is active by default (when summary exists)
+- [ ] Transcript tab is active by default (when no summary)
+- [ ] Settings gear icon (⚙️) appears in modal header
+- [ ] Clicking settings gear opens settings.html in new tab
+- [ ] Close button (×) closes modal
+- [ ] Escape key closes modal
+- [ ] Tab switching works between Transcript/Summary
+- [ ] Copy buttons work for both tabs
+- [ ] Toast notifications appear on copy
+- [ ] Theme matches YouTube (light/dark)
+- [ ] Mobile: modal is full-screen (≤768px)
+
+### Caching System (v3.0)
+- [ ] First extraction caches transcript
+- [ ] Revisiting cached video loads instantly
+- [ ] Cache includes AI summary if processed
+- [ ] Cache persists across browser sessions
+- [ ] 11th video evicts oldest cached video
+- [ ] Cache works independently per video ID
+
+### Settings & API Processing
+- [ ] Settings button opens settings page
 - [ ] Settings persist after saving
 - [ ] API keys load correctly when reopening settings
 - [ ] Models fetch automatically when API key entered
 - [ ] AI processing works with valid API keys
+- [ ] AI summary appears in separate tab in modal
 - [ ] Fallback to original transcript on API errors
 - [ ] Clear settings removes all stored data
 
@@ -318,8 +537,12 @@ Manual testing required (no automated tests):
 1. **YouTube UI Dependency:** Relies on specific DOM selectors that may break when YouTube updates
 2. **Fixed Timing Delays:** 800ms/1500ms delays may not work on slow connections
 3. **Only `/watch?v=` URLs:** Doesn't work on playlists, channels, homepage
-4. **Claude Model List Hardcoded:** No public API endpoint, must update manually when new models release
-5. **Token Limits:** OpenAI max_tokens=4000, Claude max_tokens=4096 - long transcripts may be truncated
+4. **In-page button desktop only:** Button only appears on desktop (viewport > 768px) due to YouTube's sidebar layout
+5. **Cache size limit:** Only 10 most recent videos cached (LRU eviction)
+6. **Cache not synced:** Cache uses `chrome.storage.local` and doesn't sync across devices
+7. **Claude Model List Hardcoded:** No public API endpoint, must update manually when new models release
+8. **Token Limits:** OpenAI max_tokens=4000, Claude max_tokens=4096 - long transcripts may be truncated
+9. **Modal z-index conflicts:** Modal uses z-index 999999, may conflict with other extensions or YouTube overlays
 
 ## Security Notes
 
@@ -350,4 +573,4 @@ Pull requests should target `v1.1-timestamp` branch.
 ---
 
 **Last Updated:** 2026-01-18
-**Current Version:** 2.2.0
+**Current Version:** 3.0.1
