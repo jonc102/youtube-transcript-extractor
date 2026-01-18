@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
 **Current Version:** 3.0.1
-**Branch Strategy:** `v1.1-timestamp` is the stable branch (contains v3.0.1). All PRs should target `v1.1-timestamp`. Create feature branches from `v1.1-timestamp`.
+**Branch Strategy:** `main` is the stable branch (contains v3.0.1). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -563,15 +563,15 @@ Manual testing required (no automated tests):
 ## Git Workflow
 
 **Branches:**
-- `v1.1-timestamp` - Stable branch (contains v3.0.1). Default branch on GitHub.
-- `main` - Initial development branch (inactive)
-- `v2.0`, `v3.0` - Version branches (merged into v1.1-timestamp)
+- `main` - Stable branch (contains v3.0.1). Default branch on GitHub.
+- `v2.0`, `v3.0` - Version branches (merged into main)
 - `v2.0-feature-expansion`, `v3-enhancements` - Feature branches (archived)
+- `v1.1-timestamp` - Old stable branch name (replaced by main, can be deleted)
 
 **Workflow:**
-1. Create feature branches from `v1.1-timestamp`
+1. Create feature branches from `main`
 2. Name feature branches descriptively (e.g., `v3.1-feature-name` or `bugfix-description`)
-3. All pull requests should target `v1.1-timestamp` branch
+3. All pull requests should target `main` branch
 4. After merging, version branches can be kept for reference
 
 ---
