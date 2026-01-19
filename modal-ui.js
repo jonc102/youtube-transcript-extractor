@@ -6,6 +6,7 @@ class ModalUI {
   static OVERLAY_ID = 'yte-modal-overlay';
   static isOpen = false;
   static currentData = null;
+  static currentVideoId = null; // Track which video the modal is showing
   static escapeHandler = null;
 
   /**
@@ -24,6 +25,7 @@ class ModalUI {
     }
 
     this.currentData = data;
+    this.currentVideoId = data.videoId; // Store the videoId
 
     // Create modal container
     const modal = document.createElement('div');
@@ -253,19 +255,28 @@ class ModalUI {
       return;
     }
 
+    // Check if this is for a different video
+    if (this.currentVideoId && data.videoId && this.currentVideoId !== data.videoId) {
+      console.log(`[ModalUI] VideoId changed from ${this.currentVideoId} to ${data.videoId}, recreating modal`);
+      this.close(); // Close old modal
+      this.createModal(data, isDark); // Create new modal for new video
+      return;
+    }
+
     const modal = document.getElementById(this.MODAL_ID);
     if (!modal) {
       this.createModal(data, isDark);
       return;
     }
 
-    // Update modal HTML
+    // Update modal HTML (same video, just refresh content)
     modal.innerHTML = this._buildModalHTML(data);
 
     // Re-attach event listeners
     this._attachEventListeners(modal, data);
 
     this.currentData = data;
+    this.currentVideoId = data.videoId; // Update tracked videoId
     console.log('[ModalUI] Modal content updated');
   }
 
@@ -286,6 +297,7 @@ class ModalUI {
 
     this.isOpen = false;
     this.currentData = null;
+    this.currentVideoId = null; // Clear tracked videoId
     console.log('[ModalUI] Modal closed');
   }
 

@@ -85,6 +85,14 @@ class Utils {
                .replace(/</g, '&lt;')
                .replace(/>/g, '&gt;');
 
+    // Helper function to apply inline formatting
+    const applyInlineFormatting = (str) => {
+      str = str.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      str = str.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      str = str.replace(/`(.+?)`/g, '<code>$1</code>');
+      return str;
+    };
+
     // Split into lines for better processing
     const lines = html.split('\n');
     const processed = [];
@@ -117,8 +125,11 @@ class Utils {
       const orderedMatch = line.match(/^\d+\.\s+(.+)$/);
 
       if (unorderedMatch || orderedMatch) {
-        const content = unorderedMatch ? unorderedMatch[1] : orderedMatch[1];
+        let content = unorderedMatch ? unorderedMatch[1] : orderedMatch[1];
         const currentListType = unorderedMatch ? 'ul' : 'ol';
+
+        // Apply inline formatting to list item content
+        content = applyInlineFormatting(content);
 
         if (!inList) {
           processed.push(`<${currentListType}>`);
@@ -140,20 +151,18 @@ class Utils {
 
       // Headers
       if (line.startsWith('### ')) {
-        processed.push(`<h3>${line.substring(4)}</h3>`);
+        processed.push(`<h3>${applyInlineFormatting(line.substring(4))}</h3>`);
         continue;
       } else if (line.startsWith('## ')) {
-        processed.push(`<h2>${line.substring(3)}</h2>`);
+        processed.push(`<h2>${applyInlineFormatting(line.substring(3))}</h2>`);
         continue;
       } else if (line.startsWith('# ')) {
-        processed.push(`<h1>${line.substring(2)}</h1>`);
+        processed.push(`<h1>${applyInlineFormatting(line.substring(2))}</h1>`);
         continue;
       }
 
       // Inline formatting (bold, italic, code)
-      line = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      line = line.replace(/\*(.+?)\*/g, '<em>$1</em>');
-      line = line.replace(/`(.+?)`/g, '<code>$1</code>');
+      line = applyInlineFormatting(line);
 
       // Empty lines become <br>
       if (line.trim() === '') {
