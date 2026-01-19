@@ -5,6 +5,7 @@ class ContentInjector {
   constructor() {
     this.button = null;
     this.observer = null;
+    this.urlCheckInterval = null; // Track interval for cleanup
     this.lastVideoId = null; // Track last videoId
     this.isDesktop = Utils.isDesktop();
 
@@ -28,6 +29,9 @@ class ContentInjector {
 
     // Watch for sidebar changes (delayed load)
     this.observeSidebar();
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => this.destroy());
 
     console.log('[ContentInjector] Initialized');
   }
@@ -55,7 +59,7 @@ class ContentInjector {
 
     // Also watch for URL changes (fallback)
     let lastUrl = window.location.href;
-    setInterval(() => {
+    this.urlCheckInterval = setInterval(() => {
       const currentUrl = window.location.href;
       if (currentUrl !== lastUrl) {
         lastUrl = currentUrl;
@@ -202,6 +206,10 @@ class ContentInjector {
   _styleButton() {
     const isDark = ThemeDetector.isDarkMode();
 
+    // YouTube blue colors (v3.0.4 design system)
+    const primaryColor = isDark ? '#3ea6ff' : '#065fd4';
+    const hoverColor = isDark ? '#66b6ff' : '#0449af';
+
     // Inline styles for button
     Object.assign(this.button.style, {
       width: '100%',
@@ -209,9 +217,9 @@ class ContentInjector {
       marginBottom: '16px',
       fontSize: '14px',
       fontWeight: '600',
-      border: '1px solid #dc143c',
+      border: `1px solid ${primaryColor}`,
       borderRadius: '8px',
-      background: '#dc143c',
+      background: primaryColor,
       color: '#ffffff',
       cursor: 'pointer',
       transition: 'all 0.2s',
@@ -224,13 +232,13 @@ class ContentInjector {
 
     // Hover effect
     this.button.addEventListener('mouseenter', () => {
-      this.button.style.background = '#b8112d';
-      this.button.style.borderColor = '#b8112d';
+      this.button.style.background = hoverColor;
+      this.button.style.borderColor = hoverColor;
     });
 
     this.button.addEventListener('mouseleave', () => {
-      this.button.style.background = '#dc143c';
-      this.button.style.borderColor = '#dc143c';
+      this.button.style.background = primaryColor;
+      this.button.style.borderColor = primaryColor;
     });
 
     // Focus effect
@@ -324,6 +332,13 @@ class ContentInjector {
    * Cleanup and disconnect observer
    */
   destroy() {
+    // Clear URL check interval
+    if (this.urlCheckInterval) {
+      clearInterval(this.urlCheckInterval);
+      this.urlCheckInterval = null;
+    }
+
+    // Disconnect MutationObserver
     if (this.observer) {
       this.observer.disconnect();
       this.observer = null;

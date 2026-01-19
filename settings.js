@@ -31,27 +31,11 @@ async function fetchOpenAIModels(apiKey) {
 }
 
 async function fetchClaudeModels(apiKey) {
-  const defaultModels = [
-    { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Latest)' },
-    { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
-    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
-    { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet v2' },
-    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet v1' },
-    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
-    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
-  ];
-
-  if (!apiKey || apiKey.trim() === '') {
-    return defaultModels;
-  }
-
+  // Always delegate to background.js - no duplicate model list
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'fetchClaudeModels',
-      apiKey: apiKey
+      apiKey: apiKey || '' // Pass empty string if no API key
     });
 
     if (response.error) {
@@ -59,17 +43,19 @@ async function fetchClaudeModels(apiKey) {
       if (response.error === 'Invalid API key') {
         return null;
       }
-      return defaultModels;
+      // Return empty array on other errors - background should handle fallback
+      return [];
     }
 
     if (response.success && response.models) {
       return response.models;
     }
 
-    return defaultModels;
+    // Return empty array if unexpected response
+    return [];
   } catch (error) {
     console.error('Error communicating with background service:', error);
-    return defaultModels;
+    return [];
   }
 }
 
