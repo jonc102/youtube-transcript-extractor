@@ -29,8 +29,12 @@
       <h2>API Configuration</h2>
       <div class="form-group">
         <label for="apiKey">API Key:</label>
-        <input type="password" id="apiKey" class="input" placeholder="Enter your API key">
-        <button id="toggleApiKey" class="toggle-btn">Show</button>
+        <div class="input-wrapper">
+          <input type="password" id="apiKey" class="input" placeholder="Enter your API key">
+          <button id="toggleApiKey" class="input-toggle-btn" type="button" aria-label="Toggle API key visibility">
+            👁️
+          </button>
+        </div>
       </div>
       <div class="info-message">
         Your API key is stored locally and never sent anywhere except to the selected API provider.

@@ -89,6 +89,34 @@ document.addEventListener('DOMContentLoaded', async function() {
   const promptSection = document.getElementById('promptSection');
   const modelSection = document.getElementById('modelSection');
 
+  // Initialize theme on page load
+  async function initializeTheme() {
+    const { themePreference } = await chrome.storage.sync.get(['themePreference']);
+    const preference = themePreference || 'auto';
+
+    let isDark = false;
+    if (preference === 'auto') {
+      isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } else {
+      isDark = preference === 'dark';
+    }
+
+    document.body.classList.toggle('settings-dark', isDark);
+    document.body.classList.toggle('settings-light', !isDark);
+  }
+
+  // Call immediately
+  await initializeTheme();
+
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
+    const { themePreference } = await chrome.storage.sync.get(['themePreference']);
+    if (themePreference === 'auto' || !themePreference) {
+      document.body.classList.toggle('settings-dark', e.matches);
+      document.body.classList.toggle('settings-light', !e.matches);
+    }
+  });
+
   backBtn.addEventListener('click', function() {
     window.location.href = 'popup.html';
   });
@@ -96,10 +124,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   toggleApiKeyBtn.addEventListener('click', function() {
     if (apiKeyInput.type === 'password') {
       apiKeyInput.type = 'text';
-      toggleApiKeyBtn.textContent = 'Hide';
+      toggleApiKeyBtn.textContent = '🙈';
+      toggleApiKeyBtn.setAttribute('aria-label', 'Hide API key');
     } else {
       apiKeyInput.type = 'password';
-      toggleApiKeyBtn.textContent = 'Show';
+      toggleApiKeyBtn.textContent = '👁️';
+      toggleApiKeyBtn.setAttribute('aria-label', 'Show API key');
     }
   });
 

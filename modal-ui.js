@@ -134,8 +134,15 @@ class ModalUI {
     const settingsBtn = modal.querySelector('.yte-modal-settings');
     if (settingsBtn) {
       settingsBtn.addEventListener('click', () => {
-        const settingsUrl = chrome.runtime.getURL('settings.html');
-        window.open(settingsUrl, '_blank');
+        // Send message to background script to open settings
+        // This avoids Arc Browser blocking window.open() for chrome-extension:// URLs
+        chrome.runtime.sendMessage({ action: 'openSettings' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('[ModalUI] Failed to open settings:', chrome.runtime.lastError);
+          } else {
+            console.log('[ModalUI] Settings page opened in new tab');
+          }
+        });
       });
     }
 

@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 3.0.3
-**Branch Strategy:** `main` is the stable branch (contains v3.0.3). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 3.0.4
+**Branch Strategy:** `main` is the stable branch (contains v3.0.4). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -438,7 +438,50 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
 
 ## Version History
 
-**v3.0.3** (2026-01-19) - Current
+**v3.0.4** (2026-01-19) - Current
+- **Complete UI/UX Modernization**: Unified design system across all interfaces
+- **Dark/Light Theme Support**: Auto-detection with system preference sync
+  - Added CSS variables for consistent theming
+  - Settings page, popup, and modal all support dark mode
+- **Color System Overhaul**: Replaced all red accents with YouTube-style blue
+  - Light theme: #065fd4 (YouTube blue)
+  - Dark theme: #3ea6ff (bright blue)
+  - All buttons, links, and interactive elements updated
+- **Modern Button Styling**: Elevation effects and smooth animations
+  - Hover: translateY(-1px) with enhanced shadow
+  - Primary buttons: Box shadow depth on interaction
+  - Secondary buttons: 2px borders with hover states
+- **Enhanced Status Messages**: Emoji icons for all feedback
+  - Success: ✅, Error: ❌, Info: ℹ️
+  - Consistent across popup, settings, and modal
+- **Settings Page Polish**:
+  - Password toggle integrated inside input field (👁️/🙈 icons)
+  - Info messages with ℹ️ icon prefix
+  - Section headers with blue accent bars
+  - Improved spacing (12-24px padding system)
+  - Hover effects on sections and buttons
+- **Popup Improvements**:
+  - Blue "Extract & Copy Transcript" button
+  - Settings gear with rotation animation
+  - Modern status messages with icons
+  - Theme-aware scrollbars and code blocks
+- **Modal Enhancements**:
+  - Settings gear rotates 45° and turns blue on hover
+  - Copy buttons with elevation on hover
+  - Toast notifications include emoji icons
+  - Error messages with ❌ icon prefix
+- **Arc Browser Compatibility Fix**:
+  - Fixed settings page blocking in Arc Browser
+  - Changed from window.open() to chrome.tabs.create()
+  - Settings button in modal now opens via background script
+- **Accessibility Improvements**:
+  - 2px blue focus outlines on all interactive elements
+  - ARIA labels for icon buttons
+  - Proper keyboard navigation support
+- **Typography**: Roboto font family throughout, consistent weight hierarchy
+- **Border Radius**: Standardized 8px rounded corners for modern look
+
+**v3.0.3** (2026-01-19)
 - UI improvements for better engagement
 - Changed in-page button to crimson red (#dc143c) for higher visibility
 - Updated button text to casual/fun CTA: "🎬 TL;DR This Video"
@@ -595,4 +638,4 @@ Manual testing required (no automated tests):
 ---
 
 **Last Updated:** 2026-01-19
-**Current Version:** 3.0.3
+**Current Version:** 3.0.4

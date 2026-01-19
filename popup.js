@@ -1,4 +1,32 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+  // Initialize theme on page load
+  async function initializeTheme() {
+    const { themePreference } = await chrome.storage.sync.get(['themePreference']);
+    const preference = themePreference || 'auto';
+
+    let isDark = false;
+    if (preference === 'auto') {
+      isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } else {
+      isDark = preference === 'dark';
+    }
+
+    document.body.classList.toggle('popup-dark', isDark);
+    document.body.classList.toggle('popup-light', !isDark);
+  }
+
+  // Call immediately
+  await initializeTheme();
+
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
+    const { themePreference } = await chrome.storage.sync.get(['themePreference']);
+    if (themePreference === 'auto' || !themePreference) {
+      document.body.classList.toggle('popup-dark', e.matches);
+      document.body.classList.toggle('popup-light', !e.matches);
+    }
+  });
+
   const extractBtn = document.getElementById('extractBtn');
   const settingsBtn = document.getElementById('settingsBtn');
   const statusDiv = document.getElementById('status');

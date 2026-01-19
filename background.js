@@ -36,6 +36,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Required for async response
   }
+
+  if (request.action === 'openSettings') {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('settings.html')
+    }, (tab) => {
+      sendResponse({ success: true, tabId: tab.id });
+    });
+    return true; // Required for async response
+  }
 });
 
 async function fetchOpenAIModels(apiKey) {
