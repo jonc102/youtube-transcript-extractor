@@ -158,7 +158,10 @@ Acts as a CORS bypass proxy for API calls. Implements:
   - Returns models with friendly labels and priority sorting
   - Logs discovered models to console for debugging
 - `fetchClaudeModels(apiKey)` - Validates Claude API key with test request, returns hardcoded model list
-- `callOpenAI(apiKey, model, prompt, transcript)` - Calls OpenAI chat completions (temperature 0.7, max_tokens 4000)
+- `callOpenAI(apiKey, model, prompt, transcript)` - Calls OpenAI chat completions with dynamic parameters
+  - Uses `max_completion_tokens` for O1/GPT-4o models, `max_tokens` for legacy models
+  - Includes `temperature: 0.7` for non-O1 models, excludes it for O1 models
+  - Backward compatible with GPT-3.5/GPT-4, forward compatible with O1/GPT-4o
 - `callClaude(apiKey, model, prompt, transcript)` - Calls Claude messages API (max_tokens 4096)
 
 All functions use `fetch()` with proper authentication headers.
@@ -494,6 +497,12 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
   - Exclusive filtering (excludes non-chat models) instead of inclusive
   - Supports new model names like 'chatgpt-4o-latest'
   - Debug console logging for troubleshooting model access
+- **OpenAI API Compatibility Fix**:
+  - Fixed parameter compatibility for newer OpenAI models
+  - Uses `max_completion_tokens` for O1/GPT-4o/ChatGPT-4o models
+  - Uses `max_tokens` for legacy models (GPT-3.5, GPT-4, GPT-4-turbo)
+  - Excludes `temperature` parameter for O1 models (not supported)
+  - Backward and forward compatible across all model generations
 - **Accessibility Improvements**:
   - 2px blue focus outlines on all interactive elements
   - ARIA labels for icon buttons
