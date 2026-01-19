@@ -249,16 +249,17 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
   // Determine if model uses max_completion_tokens (newer models) or max_tokens (legacy models)
   // Legacy models: gpt-3.5-turbo, gpt-4 (base), gpt-4-turbo (all non-4o gpt-4 variants)
   // Newer models: o1, gpt-4o, gpt-5+, chatgpt-*, and future models
+  const modelLower = model.toLowerCase();
   const isLegacyModel =
-    model.startsWith('gpt-3.5') ||
-    (model.startsWith('gpt-4') && !model.includes('4o'));
+    modelLower.startsWith('gpt-3.5') ||
+    (modelLower.startsWith('gpt-4') && !modelLower.includes('4o'));
 
   const usesMaxCompletionTokens = !isLegacyModel;
 
   console.log(`[OpenAI API] Model: ${model}, Legacy: ${isLegacyModel}, Using max_completion_tokens: ${usesMaxCompletionTokens}`);
 
-  // O1 models don't support temperature parameter
-  const isO1Model = model.includes('o1');
+  // O1 models don't support temperature parameter (case-insensitive check)
+  const isO1Model = modelLower.includes('o1');
 
   // Build request body with appropriate parameters
   const requestBody = {
