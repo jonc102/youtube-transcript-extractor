@@ -238,6 +238,7 @@ Provides shared functions for all content scripts:
 - `Utils.logInfo()`, `Utils.logError()` - Namespaced logging
 - `Utils.escapeHtml()` - Sanitizes HTML for safe display
 - `Utils.markdownToHtml()` - Converts markdown to HTML for AI summaries
+- `Utils.copyRichText(plainText, html)` - Copies to clipboard with dual format support (plain text + HTML)
 - Used by modal-ui.js, transcript-orchestrator.js, and other content scripts
 
 #### theme-detector.js (Theme Detection)
@@ -288,7 +289,7 @@ Creates and manages a floating modal in the bottom-right corner:
 - `ModalUI.showError(message, isDark)` - Shows error state
 - `ModalUI.close()` - Removes modal from DOM
 - `ModalUI._switchTab(tabName)` - Switches between Transcript/Summary tabs
-- `ModalUI._copyToClipboard(text, message)` - Copies content and shows toast
+- `ModalUI._copyToClipboard(text, message, type)` - Copies content with rich text support (type: 'transcript' or 'summary')
 
 **v3.0.1 Features:**
 1. **AI Summary Default Tab:** When `data.summary` exists, AI Summary tab is active by default
@@ -470,6 +471,14 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
   - Copy buttons with elevation on hover
   - Toast notifications include emoji icons
   - Error messages with ❌ icon prefix
+- **Rich Text Copy Support**: Intelligent clipboard formatting
+  - Summaries copy as both plain markdown and formatted HTML
+  - Transcripts copy as plain text with timestamps preserved
+  - Automatic format detection based on paste target
+  - Paste in Google Docs/Word → Formatted text with bold, lists, headers
+  - Paste in VS Code/terminals → Clean markdown source
+  - Uses modern Clipboard API with dual MIME types (text/plain, text/html)
+  - Graceful fallback for browsers without ClipboardItem support
 - **Arc Browser Compatibility Fix**:
   - Fixed settings page blocking in Arc Browser
   - Changed from window.open() to chrome.tabs.create()
@@ -572,6 +581,9 @@ Manual testing required (no automated tests):
 - [ ] Tab switching works between Transcript/Summary
 - [ ] Copy buttons work for both tabs
 - [ ] Toast notifications appear on copy
+- [ ] Rich text copy: Paste summary in Google Docs shows formatted text (bold, lists, etc.)
+- [ ] Rich text copy: Paste summary in VS Code shows plain markdown
+- [ ] Rich text copy: Transcript copies as plain text with timestamps
 - [ ] Theme matches YouTube (light/dark)
 - [ ] Mobile: modal is full-screen (≤768px)
 
