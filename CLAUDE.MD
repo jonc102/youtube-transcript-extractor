@@ -151,7 +151,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 Acts as a CORS bypass proxy for API calls. Implements:
 
-- `fetchOpenAIModels(apiKey)` - Fetches models from OpenAI `/v1/models` endpoint, filters for GPT-4/3.5/O1 models
+- `formatModelLabel(modelId)` - Converts raw model IDs to user-friendly labels (e.g., "gpt-4o" → "GPT-4o")
+- `fetchOpenAIModels(apiKey)` - Fetches models from OpenAI `/v1/models` endpoint
+  - Filters by excluding non-chat models (embedding, whisper, tts, dall-e, legacy models)
+  - Includes all GPT, O1, and ChatGPT variants
+  - Returns models with friendly labels and priority sorting
+  - Logs discovered models to console for debugging
 - `fetchClaudeModels(apiKey)` - Validates Claude API key with test request, returns hardcoded model list
 - `callOpenAI(apiKey, model, prompt, transcript)` - Calls OpenAI chat completions (temperature 0.7, max_tokens 4000)
 - `callClaude(apiKey, model, prompt, transcript)` - Calls Claude messages API (max_tokens 4096)
@@ -483,6 +488,12 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
   - Fixed settings page blocking in Arc Browser
   - Changed from window.open() to chrome.tabs.create()
   - Settings button in modal now opens via background script
+- **Improved Model Selection**:
+  - Enhanced OpenAI model filtering to show all available chat models
+  - User-friendly model labels (e.g., "GPT-4o", "O1 Preview")
+  - Exclusive filtering (excludes non-chat models) instead of inclusive
+  - Supports new model names like 'chatgpt-4o-latest'
+  - Debug console logging for troubleshooting model access
 - **Accessibility Improvements**:
   - 2px blue focus outlines on all interactive elements
   - ARIA labels for icon buttons
