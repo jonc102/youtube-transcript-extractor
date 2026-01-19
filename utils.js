@@ -293,17 +293,39 @@ class Utils {
    * @param {Object} metadata - Additional metadata
    */
   static logError(context, error, metadata = {}) {
-    const errorData = {
+    // Extract error details
+    const errorMessage = error?.message || error?.toString() || String(error);
+    const errorStack = error?.stack || 'No stack trace available';
+    const errorName = error?.name || 'Error';
+
+    // Build detailed error info
+    const errorDetails = {
       timestamp: new Date().toISOString(),
       context: context,
-      error: error.message || error,
-      stack: error.stack,
+      name: errorName,
+      message: errorMessage,
+      stack: errorStack,
       metadata: metadata,
       userAgent: navigator.userAgent,
       url: window.location.href
     };
 
-    console.error(`[YTE Error - ${context}]`, errorData);
+    // Log with clear formatting
+    console.error(`[YTE Error - ${context}]`, errorMessage);
+    console.error('Error Details:', errorDetails);
+
+    // If error has additional properties, log them
+    if (error && typeof error === 'object') {
+      const additionalProps = {};
+      for (const key in error) {
+        if (error.hasOwnProperty(key) && !['message', 'stack', 'name'].includes(key)) {
+          additionalProps[key] = error[key];
+        }
+      }
+      if (Object.keys(additionalProps).length > 0) {
+        console.error('Additional Error Properties:', additionalProps);
+      }
+    }
   }
 }
 
