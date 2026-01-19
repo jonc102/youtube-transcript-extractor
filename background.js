@@ -74,8 +74,9 @@ function formatModelLabel(modelId) {
     'gpt-4o-mini': 'GPT-4o Mini',
 
     // GPT-5 family (frontier models, ultra-affordable)
+    'gpt-5': 'GPT-5 (Frontier)',
     'gpt-5-nano': 'GPT-5 Nano (Ultra Cheap)',
-    'gpt-5-mini': 'GPT-5 Mini (Frontier)'
+    'gpt-5-mini': 'GPT-5 Mini'
   };
 
   // Return mapped label or clean up the ID
@@ -126,6 +127,7 @@ async function fetchOpenAIModels(apiKey) {
       'chatgpt-4o-latest',    // Latest ChatGPT-4o (best quality)
       'gpt-4o',               // GPT-4o (fast, high quality)
       'gpt-4o-mini',          // GPT-4o Mini (balanced)
+      'gpt-5',                // GPT-5 (base frontier model)
       'gpt-5-nano',           // GPT-5 Nano (frontier, ultra-cheap)
       'gpt-5-mini',           // GPT-5 Mini (frontier)
     ];
