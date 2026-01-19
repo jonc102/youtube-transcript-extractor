@@ -47,6 +47,52 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+/**
+ * Format OpenAI model ID into user-friendly label
+ * @param {string} modelId - Raw model ID from OpenAI
+ * @returns {string} - Formatted label
+ */
+function formatModelLabel(modelId) {
+  // Map of model IDs to friendly names
+  const labelMap = {
+    'chatgpt-4o-latest': 'ChatGPT-4o (Latest)',
+    'gpt-4o': 'GPT-4o',
+    'gpt-4o-mini': 'GPT-4o Mini',
+    'gpt-4o-2024-11-20': 'GPT-4o (Nov 2024)',
+    'gpt-4o-2024-08-06': 'GPT-4o (Aug 2024)',
+    'gpt-4o-2024-05-13': 'GPT-4o (May 2024)',
+    'gpt-4o-mini-2024-07-18': 'GPT-4o Mini (Jul 2024)',
+    'o1-preview': 'O1 Preview',
+    'o1-preview-2024-09-12': 'O1 Preview (Sep 2024)',
+    'o1-mini': 'O1 Mini',
+    'o1-mini-2024-09-12': 'O1 Mini (Sep 2024)',
+    'gpt-4-turbo': 'GPT-4 Turbo',
+    'gpt-4-turbo-2024-04-09': 'GPT-4 Turbo (Apr 2024)',
+    'gpt-4-turbo-preview': 'GPT-4 Turbo Preview',
+    'gpt-4-0125-preview': 'GPT-4 Turbo (Jan 2024)',
+    'gpt-4-1106-preview': 'GPT-4 Turbo (Nov 2023)',
+    'gpt-4': 'GPT-4',
+    'gpt-4-0613': 'GPT-4 (Jun 2023)',
+    'gpt-3.5-turbo': 'GPT-3.5 Turbo',
+    'gpt-3.5-turbo-0125': 'GPT-3.5 Turbo (Jan 2024)',
+    'gpt-3.5-turbo-1106': 'GPT-3.5 Turbo (Nov 2023)'
+  };
+
+  // Return mapped label or clean up the ID
+  if (labelMap[modelId]) {
+    return labelMap[modelId];
+  }
+
+  // Fallback: clean up the model ID for display
+  return modelId
+    .replace('gpt-', 'GPT-')
+    .replace('o1-', 'O1-')
+    .replace('chatgpt-', 'ChatGPT-')
+    .replace('-preview', ' Preview')
+    .replace('-turbo', ' Turbo')
+    .replace('-mini', ' Mini');
+}
+
 async function fetchOpenAIModels(apiKey) {
   if (!apiKey || apiKey.trim() === '') {
     return { success: false, models: null };
@@ -73,20 +119,39 @@ async function fetchOpenAIModels(apiKey) {
       return { success: false, models: null, error: 'Unexpected response format' };
     }
 
+    // Filter for chat completion models by excluding known non-chat models
     const chatModels = data.data
-      .filter(model =>
-        model.id.includes('gpt-4') ||
-        model.id.includes('gpt-3.5') ||
-        model.id.includes('o1')
-      )
+      .filter(model => {
+        const id = model.id.toLowerCase();
+        // Exclude non-chat models
+        if (id.includes('embedding')) return false; // text-embedding-*
+        if (id.includes('whisper')) return false; // whisper-1
+        if (id.includes('tts')) return false; // tts-1, tts-1-hd
+        if (id.includes('dall-e')) return false; // dall-e-2, dall-e-3
+        if (id.includes('davinci-002')) return false; // text-davinci-002 (legacy)
+        if (id.includes('babbage')) return false; // babbage (legacy)
+        if (id.includes('ada')) return false; // ada (legacy)
+        if (id.includes('curie')) return false; // curie (legacy)
+
+        // Include all GPT and O1 models (chat completion models)
+        if (id.includes('gpt')) return true;
+        if (id.includes('o1')) return true;
+        if (id.includes('chatgpt')) return true;
+
+        // Exclude everything else by default
+        return false;
+      })
       .sort((a, b) => {
         const priority = {
-          'gpt-4o': 1,
-          'gpt-4o-mini': 2,
-          'o1': 3,
-          'gpt-4-turbo': 4,
-          'gpt-4': 5,
-          'gpt-3.5-turbo': 6
+          'chatgpt-4o-latest': 1,
+          'gpt-4o': 2,
+          'gpt-4o-mini': 3,
+          'o1-preview': 4,
+          'o1-mini': 5,
+          'o1': 6,
+          'gpt-4-turbo': 7,
+          'gpt-4': 8,
+          'gpt-3.5-turbo': 9
         };
 
         const getPriority = (id) => {
@@ -100,13 +165,15 @@ async function fetchOpenAIModels(apiKey) {
       })
       .map(model => ({
         value: model.id,
-        label: model.id
+        label: formatModelLabel(model.id)
       }));
 
     if (chatModels.length === 0) {
+      console.warn('[OpenAI Models] No chat models found. Total models fetched:', data.data.length);
       return { success: false, models: null, error: 'No chat models found' };
     }
 
+    console.log('[OpenAI Models] Found', chatModels.length, 'chat models:', chatModels.map(m => m.value).join(', '));
     return { success: true, models: chatModels };
   } catch (error) {
     return { success: false, models: null, error: error.message };
