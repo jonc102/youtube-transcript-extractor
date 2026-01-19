@@ -42,13 +42,27 @@ class Utils {
   }
 
   /**
+   * Check if Chrome extension APIs are available
+   * @returns {boolean} - True if APIs are available
+   */
+  static isChromeAPIAvailable() {
+    try {
+      return !!(chrome && chrome.runtime && chrome.runtime.id);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
    * Check if error is "Extension context invalidated"
    * @param {Error} error - Error object
    * @returns {boolean} - True if context invalidated error
    */
   static isContextInvalidatedError(error) {
     const message = error?.message || error?.toString() || '';
-    return message.includes('Extension context invalidated');
+    return message.includes('Extension context invalidated') ||
+           message.includes('Cannot read properties of undefined') ||
+           !Utils.isChromeAPIAvailable();
   }
 
   /**

@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 3.0.4
-**Branch Strategy:** `main` is the stable branch (contains v3.0.4). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 3.0.5
+**Branch Strategy:** `main` is the stable branch (contains v3.0.5). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -447,7 +447,15 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
 
 ## Version History
 
-**v3.0.4** (2026-01-19) - Current
+**v3.0.5** (2026-01-19) - Current
+- **Extension Context Invalidation Fix**: Improved error handling when extension is reloaded
+  - Added `Utils.isChromeAPIAvailable()` to check Chrome API availability
+  - Enhanced error detection to catch "Cannot read properties of undefined" errors
+  - Shows clear user-facing error modal: "Extension was reloaded. Please refresh (F5)"
+  - Prevents cryptic console errors and silent failures
+  - Added guard checks in TranscriptOrchestrator before accessing chrome.storage
+
+**v3.0.4** (2026-01-19)
 - **Complete UI/UX Modernization**: Unified design system across all interfaces
 - **Dark/Light Theme Support**: Auto-detection with system preference sync
   - Added CSS variables for consistent theming
@@ -670,4 +678,4 @@ Manual testing required (no automated tests):
 ---
 
 **Last Updated:** 2026-01-19
-**Current Version:** 3.0.4
+**Current Version:** 3.0.5
