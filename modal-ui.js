@@ -332,13 +332,13 @@ class ModalUI {
 
     modal.innerHTML = `
       <div class="yte-modal-header">
-        <h2>⏳ Extracting Transcript...</h2>
+        <h2>🤖 Teaching AI to Watch YouTube...</h2>
         <button class="yte-modal-close" aria-label="Close">&times;</button>
       </div>
       <div class="yte-modal-content">
         <div class="yte-loading">
           <div class="yte-spinner"></div>
-          <span>Extracting transcript from YouTube...</span>
+          <span>Showing AI how to binge-watch (it learns fast, promise!)</span>
         </div>
       </div>
     `;
