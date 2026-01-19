@@ -110,10 +110,57 @@ class ModalUI {
    */
   static _getSummaryLabel(summary) {
     if (summary.model) {
-      // Extract model name (e.g., "gpt-4o" from "gpt-4o-2024-08-06")
-      const modelName = summary.model.split('-')[0] + (summary.model.includes('4') ? '-4' : '-3.5');
-      return modelName.toUpperCase();
+      const modelLower = summary.model.toLowerCase();
+
+      // GPT-5 models (frontier)
+      if (modelLower.startsWith('gpt-5')) {
+        if (modelLower.includes('nano')) return 'GPT-5 Nano';
+        if (modelLower.includes('mini')) return 'GPT-5 Mini';
+        return 'GPT-5';
+      }
+
+      // ChatGPT-4o models
+      if (modelLower.startsWith('chatgpt-4o')) {
+        return 'ChatGPT-4o';
+      }
+
+      // GPT-4o models
+      if (modelLower.includes('4o')) {
+        if (modelLower.includes('mini')) return 'GPT-4o Mini';
+        return 'GPT-4o';
+      }
+
+      // O1 models
+      if (modelLower.includes('o1')) {
+        if (modelLower.includes('mini')) return 'O1 Mini';
+        if (modelLower.includes('preview')) return 'O1 Preview';
+        return 'O1';
+      }
+
+      // GPT-4 models (legacy)
+      if (modelLower.startsWith('gpt-4')) {
+        if (modelLower.includes('turbo')) return 'GPT-4 Turbo';
+        return 'GPT-4';
+      }
+
+      // GPT-3.5 models (legacy)
+      if (modelLower.startsWith('gpt-3.5')) {
+        return 'GPT-3.5';
+      }
+
+      // Claude models
+      if (modelLower.includes('claude')) {
+        if (modelLower.includes('opus')) return 'Claude Opus';
+        if (modelLower.includes('sonnet')) return 'Claude Sonnet';
+        if (modelLower.includes('haiku')) return 'Claude Haiku';
+        return 'Claude';
+      }
+
+      // Fallback: capitalize first word
+      return summary.model.split('-')[0].toUpperCase();
     }
+
+    // Fallback to provider name
     return summary.provider ? summary.provider.toUpperCase() : 'AI';
   }
 
