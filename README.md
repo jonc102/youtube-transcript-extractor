@@ -2,7 +2,15 @@
 
 A Chrome extension that extracts transcripts from YouTube videos and optionally processes them using AI (OpenAI or Claude).
 
-**Current Version:** 3.0.1
+**Current Version:** 3.0.2
+
+## What's New in v3.0.2
+
+🐛 **Bug Fixes:**
+
+- **Fixed Stale Modal Data** - Modal now automatically closes when navigating between videos, preventing old video transcripts from displaying
+- **Improved Navigation Handling** - Added currentVideoId tracking to ensure correct video data is always shown
+- **Fixed Markdown Rendering** - Bold (`**text**`) and italic (`*text*`) formatting now properly displays in AI summaries, including in list items and headers
 
 ## What's New in v3.0.1
 
