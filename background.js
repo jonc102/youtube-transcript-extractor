@@ -243,6 +243,8 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
 
   const usesMaxCompletionTokens = !isLegacyModel;
 
+  console.log(`[OpenAI API] Model: ${model}, Legacy: ${isLegacyModel}, Using max_completion_tokens: ${usesMaxCompletionTokens}`);
+
   // O1 models don't support temperature parameter
   const isO1Model = model.includes('o1');
 
