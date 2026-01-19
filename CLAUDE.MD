@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 3.0.2
-**Branch Strategy:** `main` is the stable branch (contains v3.0.2). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 3.0.3
+**Branch Strategy:** `main` is the stable branch (contains v3.0.3). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -438,7 +438,14 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
 
 ## Version History
 
-**v3.0.2** (2026-01-19) - Current
+**v3.0.3** (2026-01-19) - Current
+- UI improvements for better engagement
+- Changed in-page button to crimson red (#dc143c) for higher visibility
+- Updated button text to casual/fun CTA: "🎬 TL;DR This Video"
+- Added playful loading messages: "🤖 Teaching AI to Watch YouTube..."
+- Enhanced button states with emoji: "✨ View TL;DR", "😵 Oops, Try Again"
+
+**v3.0.2** (2026-01-19)
 - Fixed stale modal data on video navigation
 - Modal automatically closes when navigating to new videos
 - Added currentVideoId tracking to prevent showing wrong video's data
@@ -501,8 +508,11 @@ Manual testing required (no automated tests):
 
 ### Dual Entry Points (v3.0)
 - [ ] In-page button appears in sidebar (desktop only)
-- [ ] In-page button text: "📄 Get Transcript" (first time)
-- [ ] In-page button text: "📄 View Transcript" (cached)
+- [ ] In-page button is crimson red (#dc143c) with white text
+- [ ] In-page button text: "🎬 TL;DR This Video" (first time)
+- [ ] In-page button text: "✨ View TL;DR" (cached)
+- [ ] Loading state: "🤖 Teaching AI to Watch..."
+- [ ] Error state: "😵 Oops, Try Again"
 - [ ] Extension icon popup opens on YouTube video pages
 - [ ] Both entry points open the same modal on YouTube page
 
@@ -585,4 +595,4 @@ Manual testing required (no automated tests):
 ---
 
 **Last Updated:** 2026-01-19
-**Current Version:** 3.0.2
+**Current Version:** 3.0.3

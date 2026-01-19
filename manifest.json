@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Transcript Extractor",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Extract YouTube video transcripts with AI processing and in-page access",
   "permissions": [
     "activeTab",

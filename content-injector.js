@@ -170,8 +170,8 @@ class ContentInjector {
     this.button = document.createElement('button');
     this.button.id = 'yte-transcript-button';
     this.button.className = 'yte-inject-btn';
-    this.button.innerHTML = isCached ? '📄 View Transcript' : '📄 Get Transcript';
-    this.button.setAttribute('aria-label', isCached ? 'View cached transcript' : 'Get video transcript');
+    this.button.innerHTML = isCached ? '✨ View TL;DR' : '🎬 TL;DR This Video';
+    this.button.setAttribute('aria-label', isCached ? 'View cached AI summary' : 'Get AI summary of video');
 
     // Style button
     this._styleButton();
@@ -199,10 +199,10 @@ class ContentInjector {
       marginBottom: '16px',
       fontSize: '14px',
       fontWeight: '600',
-      border: isDark ? '1px solid #3a3a3a' : '1px solid #e0e0e0',
+      border: '1px solid #dc143c',
       borderRadius: '8px',
-      background: isDark ? '#212121' : '#ffffff',
-      color: isDark ? '#f1f1f1' : '#030303',
+      background: '#dc143c',
+      color: '#ffffff',
       cursor: 'pointer',
       transition: 'all 0.2s',
       fontFamily: 'Roboto, Arial, sans-serif',
@@ -214,13 +214,13 @@ class ContentInjector {
 
     // Hover effect
     this.button.addEventListener('mouseenter', () => {
-      this.button.style.background = isDark ? '#2a2a2a' : '#f8f8f8';
-      this.button.style.borderColor = isDark ? '#3ea6ff' : '#065fd4';
+      this.button.style.background = '#b8112d';
+      this.button.style.borderColor = '#b8112d';
     });
 
     this.button.addEventListener('mouseleave', () => {
-      this.button.style.background = isDark ? '#212121' : '#ffffff';
-      this.button.style.borderColor = isDark ? '#3a3a3a' : '#e0e0e0';
+      this.button.style.background = '#dc143c';
+      this.button.style.borderColor = '#dc143c';
     });
 
     // Focus effect
@@ -279,10 +279,10 @@ class ContentInjector {
     if (!this.button) return;
 
     const states = {
-      default: '📄 Get Transcript',
-      loading: '⏳ Extracting...',
-      cached: '📄 View Transcript',
-      error: '❌ Failed'
+      default: '🎬 TL;DR This Video',
+      loading: '🤖 Teaching AI to Watch...',
+      cached: '✨ View TL;DR',
+      error: '😵 Oops, Try Again'
     };
 
     this.button.innerHTML = states[state] || states.default;
@@ -290,10 +290,10 @@ class ContentInjector {
 
     // Update aria-label
     const labels = {
-      default: 'Get video transcript',
-      loading: 'Extracting transcript',
-      cached: 'View cached transcript',
-      error: 'Extraction failed'
+      default: 'Get AI summary of video',
+      loading: 'AI is analyzing the video',
+      cached: 'View cached AI summary',
+      error: 'Summary extraction failed'
     };
 
     this.button.setAttribute('aria-label', labels[state] || labels.default);
