@@ -164,14 +164,14 @@ class ModalUI {
     const copyTranscriptBtn = modal.querySelector('[data-action="copy-transcript"]');
     if (copyTranscriptBtn) {
       copyTranscriptBtn.addEventListener('click', () => {
-        this._copyToClipboard(data.transcript.raw, 'Transcript copied!');
+        this._copyToClipboard(data.transcript.raw, 'Transcript copied!', 'transcript');
       });
     }
 
     const copySummaryBtn = modal.querySelector('[data-action="copy-summary"]');
     if (copySummaryBtn) {
       copySummaryBtn.addEventListener('click', () => {
-        this._copyToClipboard(data.summary.result, 'Summary copied!');
+        this._copyToClipboard(data.summary.result, 'Summary copied!', 'summary');
       });
     }
   }
@@ -204,16 +204,25 @@ class ModalUI {
   }
 
   /**
-   * Copy text to clipboard
+   * Copy text to clipboard with rich text support
    * @private
    * @param {string} text - Text to copy
    * @param {string} message - Success message
+   * @param {string} type - Content type ('transcript' or 'summary')
    */
-  static async _copyToClipboard(text, message) {
+  static async _copyToClipboard(text, message, type = 'transcript') {
     try {
-      await navigator.clipboard.writeText(text);
+      if (type === 'summary') {
+        // Convert markdown to HTML for rich text support
+        const html = Utils.markdownToHtml(text);
+        await Utils.copyRichText(text, html);
+      } else {
+        // Transcript: copy as plain text only
+        await Utils.copyRichText(text);
+      }
+
       this._showToast(message, 'success');
-      console.log(`[ModalUI] Copied to clipboard: ${text.length} chars`);
+      console.log(`[ModalUI] Copied ${type} to clipboard: ${text.length} chars`);
     } catch (err) {
       Utils.logError('ModalUI._copyToClipboard', err);
       this._showToast('Copy failed. Please try again.', 'error');

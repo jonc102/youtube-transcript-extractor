@@ -252,6 +252,41 @@ class Utils {
   }
 
   /**
+   * Copy text to clipboard with rich text support
+   * Copies both plain text and HTML formats for better paste compatibility
+   * @param {string} plainText - Plain text version
+   * @param {string} html - HTML version (optional, if not provided uses plainText)
+   * @returns {Promise<void>}
+   */
+  static async copyRichText(plainText, html = null) {
+    try {
+      // If no HTML provided, use plain text for both formats
+      if (!html) {
+        html = plainText.replace(/\n/g, '<br>');
+      }
+
+      // Wrap HTML in proper structure for rich editors
+      const styledHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #000;">
+          ${html}
+        </div>
+      `;
+
+      // Create clipboard items with both formats
+      const clipboardItem = new ClipboardItem({
+        'text/plain': new Blob([plainText], { type: 'text/plain' }),
+        'text/html': new Blob([styledHtml], { type: 'text/html' })
+      });
+
+      await navigator.clipboard.write([clipboardItem]);
+    } catch (err) {
+      // Fallback to plain text if rich text fails
+      console.warn('[Utils] Rich text copy failed, falling back to plain text:', err);
+      await navigator.clipboard.writeText(plainText);
+    }
+  }
+
+  /**
    * Log error with context
    * @param {string} context - Error context (e.g., 'CacheManager', 'ModalUI')
    * @param {Error|string} error - Error object or message
