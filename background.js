@@ -17,9 +17,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'callOpenAI') {
+    console.log('[Background] callOpenAI message received:', {
+      model: request.model,
+      apiKeyLength: request.apiKey?.length,
+      hasPrompt: !!request.prompt,
+      hasTranscript: !!request.transcript
+    });
     callOpenAI(request.apiKey, request.model, request.prompt, request.transcript)
-      .then(result => sendResponse({ success: true, result }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .then(result => {
+        console.log('[Background] callOpenAI success');
+        sendResponse({ success: true, result });
+      })
+      .catch(error => {
+        console.error('[Background] callOpenAI error:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
     return true; // Required for async response
   }
 
