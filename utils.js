@@ -27,6 +27,31 @@ class Utils {
   }
 
   /**
+   * Check if extension context is still valid
+   * Returns false if extension was reloaded and page needs refresh
+   * @returns {boolean} - True if context is valid
+   */
+  static isExtensionContextValid() {
+    try {
+      // Try to access chrome.runtime.id
+      // This will throw if context is invalidated
+      return !!chrome.runtime?.id;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Check if error is "Extension context invalidated"
+   * @param {Error} error - Error object
+   * @returns {boolean} - True if context invalidated error
+   */
+  static isContextInvalidatedError(error) {
+    const message = error?.message || error?.toString() || '';
+    return message.includes('Extension context invalidated');
+  }
+
+  /**
    * Format seconds to timestamp (MM:SS or HH:MM:SS)
    * @param {number} seconds - Time in seconds
    * @returns {string} - Formatted timestamp

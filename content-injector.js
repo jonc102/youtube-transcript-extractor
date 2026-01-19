@@ -160,8 +160,18 @@ class ContentInjector {
       return;
     }
 
-    // Check if cached
-    const isCached = await CacheManager.isCacheValid(videoId);
+    // Check if cached (may fail if extension context invalidated)
+    let isCached = false;
+    try {
+      isCached = await CacheManager.isCacheValid(videoId);
+    } catch (error) {
+      // Silently handle context invalidated errors
+      if (Utils.isContextInvalidatedError(error)) {
+        console.warn('[ContentInjector] Extension context invalidated. Button will show default state.');
+      } else {
+        console.error('[ContentInjector] Cache check failed:', error);
+      }
+    }
 
     // Remove old button if it exists
     this.removeButton();

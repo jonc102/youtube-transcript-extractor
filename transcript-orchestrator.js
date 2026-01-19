@@ -168,6 +168,11 @@ class TranscriptOrchestrator {
       return null;
 
     } catch (error) {
+      // Silently handle context invalidated errors
+      if (Utils.isContextInvalidatedError(error)) {
+        console.warn('[Orchestrator] Extension context invalidated. Skipping AI processing.');
+        return null;
+      }
       Utils.logError('Orchestrator._processWithAI', error);
       console.warn('[Orchestrator] AI processing failed, continuing without summary');
       // Silent fallback - don't show error to user
