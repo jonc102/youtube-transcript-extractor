@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 3.0.3
-**Branch Strategy:** `main` is the stable branch (contains v3.0.3). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 3.0.4
+**Branch Strategy:** `main` is the stable branch (contains v3.0.4). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -151,9 +151,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 Acts as a CORS bypass proxy for API calls. Implements:
 
-- `fetchOpenAIModels(apiKey)` - Fetches models from OpenAI `/v1/models` endpoint, filters for GPT-4/3.5/O1 models
+- `formatModelLabel(modelId)` - Converts raw model IDs to user-friendly labels (e.g., "gpt-4o" → "GPT-4o")
+- `fetchOpenAIModels(apiKey)` - Fetches models from OpenAI `/v1/models` endpoint
+  - Filters by excluding non-chat models (embedding, whisper, tts, dall-e, legacy models)
+  - Includes all GPT, O1, and ChatGPT variants
+  - Returns models with friendly labels and priority sorting
+  - Logs discovered models to console for debugging
 - `fetchClaudeModels(apiKey)` - Validates Claude API key with test request, returns hardcoded model list
-- `callOpenAI(apiKey, model, prompt, transcript)` - Calls OpenAI chat completions (temperature 0.7, max_tokens 4000)
+- `callOpenAI(apiKey, model, prompt, transcript)` - Calls OpenAI chat completions with dynamic parameters
+  - Uses `max_completion_tokens` for O1/GPT-4o models, `max_tokens` for legacy models
+  - Includes `temperature: 0.7` for non-O1 models, excludes it for O1 models
+  - Backward compatible with GPT-3.5/GPT-4, forward compatible with O1/GPT-4o
 - `callClaude(apiKey, model, prompt, transcript)` - Calls Claude messages API (max_tokens 4096)
 
 All functions use `fetch()` with proper authentication headers.
@@ -238,6 +246,7 @@ Provides shared functions for all content scripts:
 - `Utils.logInfo()`, `Utils.logError()` - Namespaced logging
 - `Utils.escapeHtml()` - Sanitizes HTML for safe display
 - `Utils.markdownToHtml()` - Converts markdown to HTML for AI summaries
+- `Utils.copyRichText(plainText, html)` - Copies to clipboard with dual format support (plain text + HTML)
 - Used by modal-ui.js, transcript-orchestrator.js, and other content scripts
 
 #### theme-detector.js (Theme Detection)
@@ -288,7 +297,7 @@ Creates and manages a floating modal in the bottom-right corner:
 - `ModalUI.showError(message, isDark)` - Shows error state
 - `ModalUI.close()` - Removes modal from DOM
 - `ModalUI._switchTab(tabName)` - Switches between Transcript/Summary tabs
-- `ModalUI._copyToClipboard(text, message)` - Copies content and shows toast
+- `ModalUI._copyToClipboard(text, message, type)` - Copies content with rich text support (type: 'transcript' or 'summary')
 
 **v3.0.1 Features:**
 1. **AI Summary Default Tab:** When `data.summary` exists, AI Summary tab is active by default
@@ -438,7 +447,70 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
 
 ## Version History
 
-**v3.0.3** (2026-01-19) - Current
+**v3.0.4** (2026-01-19) - Current
+- **Complete UI/UX Modernization**: Unified design system across all interfaces
+- **Dark/Light Theme Support**: Auto-detection with system preference sync
+  - Added CSS variables for consistent theming
+  - Settings page, popup, and modal all support dark mode
+- **Color System Overhaul**: Replaced all red accents with YouTube-style blue
+  - Light theme: #065fd4 (YouTube blue)
+  - Dark theme: #3ea6ff (bright blue)
+  - All buttons, links, and interactive elements updated
+- **Modern Button Styling**: Elevation effects and smooth animations
+  - Hover: translateY(-1px) with enhanced shadow
+  - Primary buttons: Box shadow depth on interaction
+  - Secondary buttons: 2px borders with hover states
+- **Enhanced Status Messages**: Emoji icons for all feedback
+  - Success: ✅, Error: ❌, Info: ℹ️
+  - Consistent across popup, settings, and modal
+- **Settings Page Polish**:
+  - Password toggle integrated inside input field (👁️/🙈 icons)
+  - Info messages with ℹ️ icon prefix
+  - Section headers with blue accent bars
+  - Improved spacing (12-24px padding system)
+  - Hover effects on sections and buttons
+- **Popup Improvements**:
+  - Blue "Extract & Copy Transcript" button
+  - Settings gear with rotation animation
+  - Modern status messages with icons
+  - Theme-aware scrollbars and code blocks
+- **Modal Enhancements**:
+  - Settings gear rotates 45° and turns blue on hover
+  - Copy buttons with elevation on hover
+  - Toast notifications include emoji icons
+  - Error messages with ❌ icon prefix
+- **Rich Text Copy Support**: Intelligent clipboard formatting
+  - Summaries copy as both plain markdown and formatted HTML
+  - Transcripts copy as plain text with timestamps preserved
+  - Automatic format detection based on paste target
+  - Paste in Google Docs/Word → Formatted text with bold, lists, headers
+  - Paste in VS Code/terminals → Clean markdown source
+  - Uses modern Clipboard API with dual MIME types (text/plain, text/html)
+  - Graceful fallback for browsers without ClipboardItem support
+- **Arc Browser Compatibility Fix**:
+  - Fixed settings page blocking in Arc Browser
+  - Changed from window.open() to chrome.tabs.create()
+  - Settings button in modal now opens via background script
+- **Improved Model Selection**:
+  - Enhanced OpenAI model filtering to show all available chat models
+  - User-friendly model labels (e.g., "GPT-4o", "O1 Preview")
+  - Exclusive filtering (excludes non-chat models) instead of inclusive
+  - Supports new model names like 'chatgpt-4o-latest'
+  - Debug console logging for troubleshooting model access
+- **OpenAI API Compatibility Fix**:
+  - Fixed parameter compatibility for newer OpenAI models
+  - Uses `max_completion_tokens` for O1/GPT-4o/ChatGPT-4o models
+  - Uses `max_tokens` for legacy models (GPT-3.5, GPT-4, GPT-4-turbo)
+  - Excludes `temperature` parameter for O1 models (not supported)
+  - Backward and forward compatible across all model generations
+- **Accessibility Improvements**:
+  - 2px blue focus outlines on all interactive elements
+  - ARIA labels for icon buttons
+  - Proper keyboard navigation support
+- **Typography**: Roboto font family throughout, consistent weight hierarchy
+- **Border Radius**: Standardized 8px rounded corners for modern look
+
+**v3.0.3** (2026-01-19)
 - UI improvements for better engagement
 - Changed in-page button to crimson red (#dc143c) for higher visibility
 - Updated button text to casual/fun CTA: "🎬 TL;DR This Video"
@@ -529,6 +601,9 @@ Manual testing required (no automated tests):
 - [ ] Tab switching works between Transcript/Summary
 - [ ] Copy buttons work for both tabs
 - [ ] Toast notifications appear on copy
+- [ ] Rich text copy: Paste summary in Google Docs shows formatted text (bold, lists, etc.)
+- [ ] Rich text copy: Paste summary in VS Code shows plain markdown
+- [ ] Rich text copy: Transcript copies as plain text with timestamps
 - [ ] Theme matches YouTube (light/dark)
 - [ ] Mobile: modal is full-screen (≤768px)
 
@@ -595,4 +670,4 @@ Manual testing required (no automated tests):
 ---
 
 **Last Updated:** 2026-01-19
-**Current Version:** 3.0.3
+**Current Version:** 3.0.4

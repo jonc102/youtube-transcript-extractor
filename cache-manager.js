@@ -22,6 +22,12 @@ class CacheManager {
    */
   static async getCachedData(videoId) {
     try {
+      // Check if extension context is still valid
+      if (!Utils.isExtensionContextValid()) {
+        console.warn('[CacheManager] Extension context invalidated. Please refresh the page.');
+        return null;
+      }
+
       const key = this.getCacheKey(videoId);
       const result = await chrome.storage.local.get(key);
 
@@ -37,6 +43,11 @@ class CacheManager {
       console.log(`[CacheManager] Cache MISS for video: ${videoId}`);
       return null;
     } catch (error) {
+      // Silently handle context invalidated errors
+      if (Utils.isContextInvalidatedError(error)) {
+        console.warn('[CacheManager] Extension context invalidated. Please refresh the page.');
+        return null;
+      }
       Utils.logError('CacheManager.getCachedData', error, { videoId });
       return null;
     }
@@ -55,6 +66,12 @@ class CacheManager {
    */
   static async setCachedData(videoId, data) {
     try {
+      // Check if extension context is still valid
+      if (!Utils.isExtensionContextValid()) {
+        console.warn('[CacheManager] Extension context invalidated. Skipping cache save.');
+        return false;
+      }
+
       const key = this.getCacheKey(videoId);
 
       // Update LRU before saving
@@ -77,6 +94,11 @@ class CacheManager {
       console.log(`[CacheManager] Cached data for video: ${videoId}`);
       return true;
     } catch (error) {
+      // Silently handle context invalidated errors
+      if (Utils.isContextInvalidatedError(error)) {
+        console.warn('[CacheManager] Extension context invalidated. Skipping cache save.');
+        return false;
+      }
       Utils.logError('CacheManager.setCachedData', error, { videoId });
       return false;
     }
@@ -188,6 +210,11 @@ class CacheManager {
    */
   static async _updateLRU(videoId) {
     try {
+      // Check if extension context is still valid
+      if (!Utils.isExtensionContextValid()) {
+        return; // Silently skip if context invalid
+      }
+
       const { [this.METADATA_KEY]: metadata } = await chrome.storage.local.get(this.METADATA_KEY);
       const currentMetadata = metadata || {
         videoIds: [],
@@ -202,6 +229,10 @@ class CacheManager {
         [this.METADATA_KEY]: currentMetadata
       });
     } catch (error) {
+      // Silently handle context invalidated errors
+      if (Utils.isContextInvalidatedError(error)) {
+        return;
+      }
       Utils.logError('CacheManager._updateLRU', error, { videoId });
     }
   }
@@ -212,6 +243,11 @@ class CacheManager {
    */
   static async _enforceQuota() {
     try {
+      // Check if extension context is still valid
+      if (!Utils.isExtensionContextValid()) {
+        return; // Silently skip if context invalid
+      }
+
       const { [this.METADATA_KEY]: metadata } = await chrome.storage.local.get(this.METADATA_KEY);
 
       if (!metadata || metadata.videoIds.length < this.MAX_VIDEOS) {
@@ -241,6 +277,10 @@ class CacheManager {
 
       console.log(`[CacheManager] Cache quota enforced. Remaining: ${metadata.videoIds.length} videos`);
     } catch (error) {
+      // Silently handle context invalidated errors
+      if (Utils.isContextInvalidatedError(error)) {
+        return;
+      }
       Utils.logError('CacheManager._enforceQuota', error);
     }
   }

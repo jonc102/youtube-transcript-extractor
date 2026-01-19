@@ -31,27 +31,11 @@ async function fetchOpenAIModels(apiKey) {
 }
 
 async function fetchClaudeModels(apiKey) {
-  const defaultModels = [
-    { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Latest)' },
-    { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
-    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
-    { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet v2' },
-    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet v1' },
-    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
-    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
-  ];
-
-  if (!apiKey || apiKey.trim() === '') {
-    return defaultModels;
-  }
-
+  // Always delegate to background.js - no duplicate model list
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'fetchClaudeModels',
-      apiKey: apiKey
+      apiKey: apiKey || '' // Pass empty string if no API key
     });
 
     if (response.error) {
@@ -59,17 +43,19 @@ async function fetchClaudeModels(apiKey) {
       if (response.error === 'Invalid API key') {
         return null;
       }
-      return defaultModels;
+      // Return empty array on other errors - background should handle fallback
+      return [];
     }
 
     if (response.success && response.models) {
       return response.models;
     }
 
-    return defaultModels;
+    // Return empty array if unexpected response
+    return [];
   } catch (error) {
     console.error('Error communicating with background service:', error);
-    return defaultModels;
+    return [];
   }
 }
 
@@ -89,6 +75,34 @@ document.addEventListener('DOMContentLoaded', async function() {
   const promptSection = document.getElementById('promptSection');
   const modelSection = document.getElementById('modelSection');
 
+  // Initialize theme on page load
+  async function initializeTheme() {
+    const { themePreference } = await chrome.storage.sync.get(['themePreference']);
+    const preference = themePreference || 'auto';
+
+    let isDark = false;
+    if (preference === 'auto') {
+      isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } else {
+      isDark = preference === 'dark';
+    }
+
+    document.body.classList.toggle('settings-dark', isDark);
+    document.body.classList.toggle('settings-light', !isDark);
+  }
+
+  // Call immediately
+  await initializeTheme();
+
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
+    const { themePreference } = await chrome.storage.sync.get(['themePreference']);
+    if (themePreference === 'auto' || !themePreference) {
+      document.body.classList.toggle('settings-dark', e.matches);
+      document.body.classList.toggle('settings-light', !e.matches);
+    }
+  });
+
   backBtn.addEventListener('click', function() {
     window.location.href = 'popup.html';
   });
@@ -96,10 +110,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   toggleApiKeyBtn.addEventListener('click', function() {
     if (apiKeyInput.type === 'password') {
       apiKeyInput.type = 'text';
-      toggleApiKeyBtn.textContent = 'Hide';
+      toggleApiKeyBtn.textContent = '🙈';
+      toggleApiKeyBtn.setAttribute('aria-label', 'Hide API key');
     } else {
       apiKeyInput.type = 'password';
-      toggleApiKeyBtn.textContent = 'Show';
+      toggleApiKeyBtn.textContent = '👁️';
+      toggleApiKeyBtn.setAttribute('aria-label', 'Show API key');
     }
   });
 

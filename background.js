@@ -17,9 +17,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'callOpenAI') {
+    console.log('[Background] callOpenAI message received:', {
+      model: request.model,
+      apiKeyLength: request.apiKey?.length,
+      hasPrompt: !!request.prompt,
+      hasTranscript: !!request.transcript
+    });
     callOpenAI(request.apiKey, request.model, request.prompt, request.transcript)
-      .then(result => sendResponse({ success: true, result }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .then(result => {
+        console.log('[Background] callOpenAI success');
+        sendResponse({ success: true, result });
+      })
+      .catch(error => {
+        console.error('[Background] callOpenAI error:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
     return true; // Required for async response
   }
 
@@ -36,7 +48,52 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Required for async response
   }
+
+  if (request.action === 'openSettings') {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('settings.html')
+    }, (tab) => {
+      sendResponse({ success: true, tabId: tab.id });
+    });
+    return true; // Required for async response
+  }
 });
+
+/**
+ * Format OpenAI model ID into user-friendly label
+ * Optimized for recommended models used in short text summaries
+ * @param {string} modelId - Raw model ID from OpenAI
+ * @returns {string} - Formatted label
+ */
+function formatModelLabel(modelId) {
+  // Map of recommended model IDs to friendly names
+  const labelMap = {
+    // ChatGPT-4o family (best quality)
+    'chatgpt-4o-latest': 'ChatGPT-4o Latest (Best Quality)',
+    'gpt-4o': 'GPT-4o',
+    'gpt-4o-mini': 'GPT-4o Mini',
+
+    // GPT-5 family (frontier models, ultra-affordable)
+    'gpt-5': 'GPT-5 (Frontier)',
+    'gpt-5-nano': 'GPT-5 Nano (Ultra Cheap)',
+    'gpt-5-mini': 'GPT-5 Mini'
+  };
+
+  // Return mapped label or clean up the ID
+  if (labelMap[modelId]) {
+    return labelMap[modelId];
+  }
+
+  // Fallback: clean up the model ID for display
+  return modelId
+    .replace(/^gpt-5-/i, 'GPT-5 ')
+    .replace(/^gpt-4o-/i, 'GPT-4o ')
+    .replace(/^gpt-/i, 'GPT-')
+    .replace(/^chatgpt-/i, 'ChatGPT-')
+    .replace(/-turbo/i, ' Turbo')
+    .replace(/-mini/i, ' Mini')
+    .replace(/-nano/i, ' Nano');
+}
 
 async function fetchOpenAIModels(apiKey) {
   if (!apiKey || apiKey.trim() === '') {
@@ -64,40 +121,50 @@ async function fetchOpenAIModels(apiKey) {
       return { success: false, models: null, error: 'Unexpected response format' };
     }
 
-    const chatModels = data.data
-      .filter(model =>
-        model.id.includes('gpt-4') ||
-        model.id.includes('gpt-3.5') ||
-        model.id.includes('o1')
-      )
-      .sort((a, b) => {
-        const priority = {
-          'gpt-4o': 1,
-          'gpt-4o-mini': 2,
-          'o1': 3,
-          'gpt-4-turbo': 4,
-          'gpt-4': 5,
-          'gpt-3.5-turbo': 6
-        };
+    // Curated list of models optimized for short text summaries
+    // Only the most relevant and cost-effective models
+    const recommendedModels = [
+      'chatgpt-4o-latest',    // Latest ChatGPT-4o (best quality)
+      'gpt-4o',               // GPT-4o (fast, high quality)
+      'gpt-4o-mini',          // GPT-4o Mini (balanced)
+      'gpt-5',                // GPT-5 (base frontier model)
+      'gpt-5-nano',           // GPT-5 Nano (frontier, ultra-cheap)
+      'gpt-5-mini',           // GPT-5 Mini (frontier)
+    ];
 
+    // Filter for recommended models only
+    const chatModels = data.data
+      .filter(model => {
+        const id = model.id.toLowerCase();
+
+        // Only include exact matches from recommended list
+        // This prevents snapshot models like gpt-4o-2024-11-20 from appearing
+        return recommendedModels.some(recommended =>
+          id === recommended.toLowerCase()
+        );
+      })
+      .sort((a, b) => {
+        // Sort by priority order in recommendedModels list
         const getPriority = (id) => {
-          for (const [key, val] of Object.entries(priority)) {
-            if (id.startsWith(key)) return val;
-          }
-          return 999;
+          const index = recommendedModels.findIndex(recommended =>
+            id.toLowerCase().startsWith(recommended.toLowerCase())
+          );
+          return index === -1 ? 999 : index;
         };
 
         return getPriority(a.id) - getPriority(b.id);
       })
       .map(model => ({
         value: model.id,
-        label: model.id
+        label: formatModelLabel(model.id)
       }));
 
     if (chatModels.length === 0) {
+      console.warn('[OpenAI Models] No chat models found. Total models fetched:', data.data.length);
       return { success: false, models: null, error: 'No chat models found' };
     }
 
+    console.log('[OpenAI Models] Found', chatModels.length, 'chat models:', chatModels.map(m => m.value).join(', '));
     return { success: true, models: chatModels };
   } catch (error) {
     return { success: false, models: null, error: error.message };
@@ -158,18 +225,49 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
     }
   ];
 
+  // Determine model parameters based on model type
+  const modelLower = model.toLowerCase();
+
+  // Legacy models: gpt-3.5-turbo, gpt-4 (base), gpt-4-turbo (all non-4o gpt-4 variants)
+  const isLegacyModel =
+    modelLower.startsWith('gpt-3.5') ||
+    (modelLower.startsWith('gpt-4') && !modelLower.includes('4o'));
+
+  // Models that don't support temperature parameter
+  const noTemperatureSupport =
+    modelLower.includes('o1') ||      // O1 models
+    modelLower.startsWith('gpt-5');   // GPT-5 models (only support default temperature)
+
+  // Newer models use max_completion_tokens instead of max_tokens
+  const usesMaxCompletionTokens = !isLegacyModel;
+
+  console.log(`[OpenAI API] Model: ${model}, Legacy: ${isLegacyModel}, Temperature: ${!noTemperatureSupport}, max_completion_tokens: ${usesMaxCompletionTokens}`);
+
+  // Build request body with appropriate parameters
+  const requestBody = {
+    model: model,
+    messages: messages
+  };
+
+  // Only add temperature for models that support it
+  if (!noTemperatureSupport) {
+    requestBody.temperature = 0.7;
+  }
+
+  // Use appropriate token parameter name based on model
+  if (usesMaxCompletionTokens) {
+    requestBody.max_completion_tokens = 4000;
+  } else {
+    requestBody.max_tokens = 4000;
+  }
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify({
-      model: model,
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 4000
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {

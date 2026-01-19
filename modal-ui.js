@@ -110,10 +110,57 @@ class ModalUI {
    */
   static _getSummaryLabel(summary) {
     if (summary.model) {
-      // Extract model name (e.g., "gpt-4o" from "gpt-4o-2024-08-06")
-      const modelName = summary.model.split('-')[0] + (summary.model.includes('4') ? '-4' : '-3.5');
-      return modelName.toUpperCase();
+      const modelLower = summary.model.toLowerCase();
+
+      // GPT-5 models (frontier)
+      if (modelLower.startsWith('gpt-5')) {
+        if (modelLower.includes('nano')) return 'GPT-5 Nano';
+        if (modelLower.includes('mini')) return 'GPT-5 Mini';
+        return 'GPT-5';
+      }
+
+      // ChatGPT-4o models
+      if (modelLower.startsWith('chatgpt-4o')) {
+        return 'ChatGPT-4o';
+      }
+
+      // GPT-4o models
+      if (modelLower.includes('4o')) {
+        if (modelLower.includes('mini')) return 'GPT-4o Mini';
+        return 'GPT-4o';
+      }
+
+      // O1 models
+      if (modelLower.includes('o1')) {
+        if (modelLower.includes('mini')) return 'O1 Mini';
+        if (modelLower.includes('preview')) return 'O1 Preview';
+        return 'O1';
+      }
+
+      // GPT-4 models (legacy)
+      if (modelLower.startsWith('gpt-4')) {
+        if (modelLower.includes('turbo')) return 'GPT-4 Turbo';
+        return 'GPT-4';
+      }
+
+      // GPT-3.5 models (legacy)
+      if (modelLower.startsWith('gpt-3.5')) {
+        return 'GPT-3.5';
+      }
+
+      // Claude models
+      if (modelLower.includes('claude')) {
+        if (modelLower.includes('opus')) return 'Claude Opus';
+        if (modelLower.includes('sonnet')) return 'Claude Sonnet';
+        if (modelLower.includes('haiku')) return 'Claude Haiku';
+        return 'Claude';
+      }
+
+      // Fallback: capitalize first word
+      return summary.model.split('-')[0].toUpperCase();
     }
+
+    // Fallback to provider name
     return summary.provider ? summary.provider.toUpperCase() : 'AI';
   }
 
@@ -134,8 +181,15 @@ class ModalUI {
     const settingsBtn = modal.querySelector('.yte-modal-settings');
     if (settingsBtn) {
       settingsBtn.addEventListener('click', () => {
-        const settingsUrl = chrome.runtime.getURL('settings.html');
-        window.open(settingsUrl, '_blank');
+        // Send message to background script to open settings
+        // This avoids Arc Browser blocking window.open() for chrome-extension:// URLs
+        chrome.runtime.sendMessage({ action: 'openSettings' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('[ModalUI] Failed to open settings:', chrome.runtime.lastError);
+          } else {
+            console.log('[ModalUI] Settings page opened in new tab');
+          }
+        });
       });
     }
 
@@ -157,14 +211,14 @@ class ModalUI {
     const copyTranscriptBtn = modal.querySelector('[data-action="copy-transcript"]');
     if (copyTranscriptBtn) {
       copyTranscriptBtn.addEventListener('click', () => {
-        this._copyToClipboard(data.transcript.raw, 'Transcript copied!');
+        this._copyToClipboard(data.transcript.raw, 'Transcript copied!', 'transcript');
       });
     }
 
     const copySummaryBtn = modal.querySelector('[data-action="copy-summary"]');
     if (copySummaryBtn) {
       copySummaryBtn.addEventListener('click', () => {
-        this._copyToClipboard(data.summary.result, 'Summary copied!');
+        this._copyToClipboard(data.summary.result, 'Summary copied!', 'summary');
       });
     }
   }
@@ -197,16 +251,25 @@ class ModalUI {
   }
 
   /**
-   * Copy text to clipboard
+   * Copy text to clipboard with rich text support
    * @private
    * @param {string} text - Text to copy
    * @param {string} message - Success message
+   * @param {string} type - Content type ('transcript' or 'summary')
    */
-  static async _copyToClipboard(text, message) {
+  static async _copyToClipboard(text, message, type = 'transcript') {
     try {
-      await navigator.clipboard.writeText(text);
+      if (type === 'summary') {
+        // Convert markdown to HTML for rich text support
+        const html = Utils.markdownToHtml(text);
+        await Utils.copyRichText(text, html);
+      } else {
+        // Transcript: copy as plain text only
+        await Utils.copyRichText(text);
+      }
+
       this._showToast(message, 'success');
-      console.log(`[ModalUI] Copied to clipboard: ${text.length} chars`);
+      console.log(`[ModalUI] Copied ${type} to clipboard: ${text.length} chars`);
     } catch (err) {
       Utils.logError('ModalUI._copyToClipboard', err);
       this._showToast('Copy failed. Please try again.', 'error');

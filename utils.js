@@ -27,6 +27,31 @@ class Utils {
   }
 
   /**
+   * Check if extension context is still valid
+   * Returns false if extension was reloaded and page needs refresh
+   * @returns {boolean} - True if context is valid
+   */
+  static isExtensionContextValid() {
+    try {
+      // Try to access chrome.runtime.id
+      // This will throw if context is invalidated
+      return !!chrome.runtime?.id;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Check if error is "Extension context invalidated"
+   * @param {Error} error - Error object
+   * @returns {boolean} - True if context invalidated error
+   */
+  static isContextInvalidatedError(error) {
+    const message = error?.message || error?.toString() || '';
+    return message.includes('Extension context invalidated');
+  }
+
+  /**
    * Format seconds to timestamp (MM:SS or HH:MM:SS)
    * @param {number} seconds - Time in seconds
    * @returns {string} - Formatted timestamp
@@ -252,23 +277,80 @@ class Utils {
   }
 
   /**
+   * Copy text to clipboard with rich text support
+   * Copies both plain text and HTML formats for better paste compatibility
+   * @param {string} plainText - Plain text version
+   * @param {string} html - HTML version (optional, if not provided uses plainText)
+   * @returns {Promise<void>}
+   */
+  static async copyRichText(plainText, html = null) {
+    try {
+      // If no HTML provided, use plain text for both formats
+      if (!html) {
+        html = plainText.replace(/\n/g, '<br>');
+      }
+
+      // Wrap HTML in proper structure for rich editors
+      const styledHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #000;">
+          ${html}
+        </div>
+      `;
+
+      // Create clipboard items with both formats
+      const clipboardItem = new ClipboardItem({
+        'text/plain': new Blob([plainText], { type: 'text/plain' }),
+        'text/html': new Blob([styledHtml], { type: 'text/html' })
+      });
+
+      await navigator.clipboard.write([clipboardItem]);
+    } catch (err) {
+      // Fallback to plain text if rich text fails
+      console.warn('[Utils] Rich text copy failed, falling back to plain text:', err);
+      await navigator.clipboard.writeText(plainText);
+    }
+  }
+
+  /**
    * Log error with context
    * @param {string} context - Error context (e.g., 'CacheManager', 'ModalUI')
    * @param {Error|string} error - Error object or message
    * @param {Object} metadata - Additional metadata
    */
   static logError(context, error, metadata = {}) {
-    const errorData = {
+    // Extract error details
+    const errorMessage = error?.message || error?.toString() || String(error);
+    const errorStack = error?.stack || 'No stack trace available';
+    const errorName = error?.name || 'Error';
+
+    // Build detailed error info
+    const errorDetails = {
       timestamp: new Date().toISOString(),
       context: context,
-      error: error.message || error,
-      stack: error.stack,
+      name: errorName,
+      message: errorMessage,
+      stack: errorStack,
       metadata: metadata,
       userAgent: navigator.userAgent,
       url: window.location.href
     };
 
-    console.error(`[YTE Error - ${context}]`, errorData);
+    // Log with clear formatting
+    console.error(`[YTE Error - ${context}]`, errorMessage);
+    console.error('Error Details:', errorDetails);
+
+    // If error has additional properties, log them
+    if (error && typeof error === 'object') {
+      const additionalProps = {};
+      for (const key in error) {
+        if (error.hasOwnProperty(key) && !['message', 'stack', 'name'].includes(key)) {
+          additionalProps[key] = error[key];
+        }
+      }
+      if (Object.keys(additionalProps).length > 0) {
+        console.error('Additional Error Properties:', additionalProps);
+      }
+    }
   }
 }
 
