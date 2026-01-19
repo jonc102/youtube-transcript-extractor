@@ -2,7 +2,16 @@
 
 A Chrome extension that extracts transcripts from YouTube videos and optionally processes them using AI (OpenAI or Claude).
 
-**Current Version:** 3.0.2
+**Current Version:** 3.0.5
+
+## What's New in v3.0.5
+
+🐛 **Extension Context Error Handling:**
+
+- **Fixed Extension Reload Errors** - Extension now gracefully handles being reloaded at `chrome://extensions/`
+- **Clear Error Messages** - Shows user-friendly modal: "Extension was reloaded. Please refresh (F5)"
+- **Improved API Checks** - Added `Utils.isChromeAPIAvailable()` to verify Chrome APIs before use
+- **No More Cryptic Errors** - Prevents "Cannot read properties of undefined" console errors
 
 ## What's New in v3.0.2
 
