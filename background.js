@@ -234,18 +234,40 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
     }
   ];
 
+  // Determine if model uses max_completion_tokens (newer models) or max_tokens (older models)
+  const usesMaxCompletionTokens =
+    model.includes('o1') ||
+    model.includes('gpt-4o') ||
+    model.includes('chatgpt-4o');
+
+  // O1 models don't support temperature parameter
+  const isO1Model = model.includes('o1');
+
+  // Build request body with appropriate parameters
+  const requestBody = {
+    model: model,
+    messages: messages
+  };
+
+  // Only add temperature for non-O1 models
+  if (!isO1Model) {
+    requestBody.temperature = 0.7;
+  }
+
+  // Use appropriate token parameter name based on model
+  if (usesMaxCompletionTokens) {
+    requestBody.max_completion_tokens = 4000;
+  } else {
+    requestBody.max_tokens = 4000;
+  }
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify({
-      model: model,
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 4000
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
