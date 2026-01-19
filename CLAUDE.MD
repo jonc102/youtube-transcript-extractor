@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 3.0.1
-**Branch Strategy:** `main` is the stable branch (contains v3.0.1). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 3.0.2
+**Branch Strategy:** `main` is the stable branch (contains v3.0.2). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -438,7 +438,15 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
 
 ## Version History
 
-**v3.0.1** (2026-01-18) - Current
+**v3.0.2** (2026-01-19) - Current
+- Fixed stale modal data on video navigation
+- Modal automatically closes when navigating to new videos
+- Added currentVideoId tracking to prevent showing wrong video's data
+- Button click handler uses current URL instead of stale captured videoId
+- Fixed markdown bold/italic rendering in AI summaries (list items and headers)
+- Enhanced markdownToHtml() with applyInlineFormatting() helper function
+
+**v3.0.1** (2026-01-18)
 - AI Summary tab as default when summary exists
 - Settings gear icon in modal header
 - Floating corner modal (no backdrop overlay)
@@ -576,5 +584,5 @@ Manual testing required (no automated tests):
 
 ---
 
-**Last Updated:** 2026-01-18
-**Current Version:** 3.0.1
+**Last Updated:** 2026-01-19
+**Current Version:** 3.0.2

@@ -5,6 +5,7 @@ class ContentInjector {
   constructor() {
     this.button = null;
     this.observer = null;
+    this.lastVideoId = null; // Track last videoId
     this.isDesktop = Utils.isDesktop();
 
     // Only inject on desktop
@@ -39,6 +40,12 @@ class ContentInjector {
     window.addEventListener('yt-navigate-finish', () => {
       console.log('[ContentInjector] YouTube navigation detected');
 
+      // Close any open modal when navigating away
+      if (window.ModalUI && ModalUI.isOpen) {
+        console.log('[ContentInjector] Closing modal due to navigation');
+        ModalUI.close();
+      }
+
       if (Utils.isVideoPage()) {
         this.injectButton();
       } else {
@@ -53,6 +60,12 @@ class ContentInjector {
       if (currentUrl !== lastUrl) {
         lastUrl = currentUrl;
         console.log('[ContentInjector] URL changed');
+
+        // Close modal on URL change
+        if (window.ModalUI && ModalUI.isOpen) {
+          console.log('[ContentInjector] Closing modal due to URL change');
+          ModalUI.close();
+        }
 
         if (Utils.isVideoPage()) {
           this.injectButton();
@@ -114,12 +127,6 @@ class ContentInjector {
    * Inject button into sidebar
    */
   async injectButton() {
-    // Don't inject if button already exists
-    if (this.button && document.body.contains(this.button)) {
-      console.log('[ContentInjector] Button already injected');
-      return;
-    }
-
     // Don't inject if not on video page
     if (!Utils.isVideoPage()) {
       console.log('[ContentInjector] Not on video page, skipping injection');
@@ -135,6 +142,21 @@ class ContentInjector {
     const videoId = Utils.getCurrentVideoId();
     if (!videoId) {
       console.log('[ContentInjector] No video ID found');
+      return;
+    }
+
+    // If button exists for different video, remove and recreate
+    if (this.button && this.lastVideoId && this.lastVideoId !== videoId) {
+      console.log(`[ContentInjector] Video changed from ${this.lastVideoId} to ${videoId}, recreating button`);
+      this.removeButton();
+    }
+
+    // Store current videoId
+    this.lastVideoId = videoId;
+
+    // Don't inject if button already exists for this video
+    if (this.button && document.body.contains(this.button)) {
+      console.log('[ContentInjector] Button already injected');
       return;
     }
 
@@ -154,8 +176,8 @@ class ContentInjector {
     // Style button
     this._styleButton();
 
-    // Attach click handler
-    this.button.addEventListener('click', () => this._handleButtonClick(videoId));
+    // Attach click handler (no videoId parameter - will be extracted on click)
+    this.button.addEventListener('click', () => this._handleButtonClick());
 
     // Insert before related videos
     sidebar.parentElement.insertBefore(this.button, sidebar);
@@ -215,9 +237,17 @@ class ContentInjector {
   /**
    * Handle button click
    * @private
-   * @param {string} videoId - Video ID
    */
-  async _handleButtonClick(videoId) {
+  async _handleButtonClick() {
+    // Get current videoId from URL instead of using captured value
+    const currentUrl = new URL(window.location.href);
+    const videoId = currentUrl.searchParams.get('v');
+
+    if (!videoId) {
+      Utils.logError('ContentInjector', 'No videoId found in current URL');
+      return;
+    }
+
     console.log(`[ContentInjector] Button clicked for video: ${videoId}`);
 
     // Set loading state
