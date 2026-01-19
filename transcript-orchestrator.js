@@ -14,6 +14,14 @@ class TranscriptOrchestrator {
 
     const isDark = ThemeDetector.isDarkMode();
 
+    // Check if Chrome APIs are available
+    if (!Utils.isChromeAPIAvailable()) {
+      const errorMsg = '❌ Extension was reloaded. Please refresh this page (F5) to continue.';
+      console.error('[Orchestrator] Extension context invalidated');
+      ModalUI.showError(errorMsg, isDark);
+      return false;
+    }
+
     try {
       // Step 1: Check cache first
       const cachedData = await CacheManager.getCachedData(videoId);
@@ -102,6 +110,12 @@ class TranscriptOrchestrator {
    */
   static async _processWithAI(transcript, isDark) {
     try {
+      // Check if Chrome APIs are available
+      if (!Utils.isChromeAPIAvailable()) {
+        console.warn('[Orchestrator] Extension context invalidated. Skipping AI processing.');
+        return null;
+      }
+
       // Get AI settings from chrome.storage.sync
       const settings = await chrome.storage.sync.get([
         'apiProvider',
