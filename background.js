@@ -68,23 +68,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function formatModelLabel(modelId) {
   // Map of recommended model IDs to friendly names
   const labelMap = {
-    // ChatGPT-4o family (recommended for quality)
+    // ChatGPT-4o family (best quality)
     'chatgpt-4o-latest': 'ChatGPT-4o Latest (Best Quality)',
     'gpt-4o': 'GPT-4o',
     'gpt-4o-mini': 'GPT-4o Mini',
-    'gpt-4o-2024-11-20': 'GPT-4o (Nov 2024)',
-    'gpt-4o-2024-08-06': 'GPT-4o (Aug 2024)',
-    'gpt-4o-2024-05-13': 'GPT-4o (May 2024)',
-    'gpt-4o-mini-2024-07-18': 'GPT-4o Mini (Jul 2024)',
 
     // GPT-5 family (frontier models, ultra-affordable)
     'gpt-5-nano': 'GPT-5 Nano (Ultra Cheap)',
-    'gpt-5-mini': 'GPT-5 Mini (Frontier)',
-
-    // GPT-3.5 family (legacy, still fast)
-    'gpt-3.5-turbo': 'GPT-3.5 Turbo',
-    'gpt-3.5-turbo-0125': 'GPT-3.5 Turbo (Jan 2024)',
-    'gpt-3.5-turbo-1106': 'GPT-3.5 Turbo (Nov 2023)'
+    'gpt-5-mini': 'GPT-5 Mini (Frontier)'
   };
 
   // Return mapped label or clean up the ID
@@ -130,18 +121,13 @@ async function fetchOpenAIModels(apiKey) {
     }
 
     // Curated list of models optimized for short text summaries
-    // These models are tested and known to work with the extension
+    // Only the most relevant and cost-effective models
     const recommendedModels = [
       'chatgpt-4o-latest',    // Latest ChatGPT-4o (best quality)
       'gpt-4o',               // GPT-4o (fast, high quality)
-      'gpt-4o-mini',          // GPT-4o Mini (fast, cost-effective)
-      'gpt-4o-2024-11-20',    // GPT-4o snapshot
-      'gpt-4o-2024-08-06',    // GPT-4o snapshot
-      'gpt-4o-mini-2024-07-18', // GPT-4o Mini snapshot
-      'gpt-5-nano',           // GPT-5 Nano (frontier model, ultra-cheap)
-      'gpt-5-mini',           // GPT-5 Mini (frontier model)
-      'gpt-3.5-turbo',        // GPT-3.5 Turbo (fastest, legacy)
-      'gpt-3.5-turbo-0125',   // GPT-3.5 Turbo snapshot
+      'gpt-4o-mini',          // GPT-4o Mini (balanced)
+      'gpt-5-nano',           // GPT-5 Nano (frontier, ultra-cheap)
+      'gpt-5-mini',           // GPT-5 Mini (frontier)
     ];
 
     // Filter for recommended models only
