@@ -137,9 +137,10 @@ async function fetchOpenAIModels(apiKey) {
       .filter(model => {
         const id = model.id.toLowerCase();
 
-        // Only include models from recommended list
+        // Only include exact matches from recommended list
+        // This prevents snapshot models like gpt-4o-2024-11-20 from appearing
         return recommendedModels.some(recommended =>
-          id === recommended.toLowerCase() || id.startsWith(recommended.toLowerCase())
+          id === recommended.toLowerCase()
         );
       })
       .sort((a, b) => {
