@@ -234,11 +234,14 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
     }
   ];
 
-  // Determine if model uses max_completion_tokens (newer models) or max_tokens (older models)
-  const usesMaxCompletionTokens =
-    model.includes('o1') ||
-    model.includes('gpt-4o') ||
-    model.includes('chatgpt-4o');
+  // Determine if model uses max_completion_tokens (newer models) or max_tokens (legacy models)
+  // Legacy models: gpt-3.5-turbo, gpt-4 (base), gpt-4-turbo (all non-4o gpt-4 variants)
+  // Newer models: o1, gpt-4o, gpt-5+, chatgpt-*, and future models
+  const isLegacyModel =
+    model.startsWith('gpt-3.5') ||
+    (model.startsWith('gpt-4') && !model.includes('4o'));
+
+  const usesMaxCompletionTokens = !isLegacyModel;
 
   // O1 models don't support temperature parameter
   const isO1Model = model.includes('o1');
