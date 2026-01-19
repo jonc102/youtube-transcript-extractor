@@ -61,31 +61,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 /**
  * Format OpenAI model ID into user-friendly label
+ * Optimized for recommended models used in short text summaries
  * @param {string} modelId - Raw model ID from OpenAI
  * @returns {string} - Formatted label
  */
 function formatModelLabel(modelId) {
-  // Map of model IDs to friendly names
+  // Map of recommended model IDs to friendly names
   const labelMap = {
-    'chatgpt-4o-latest': 'ChatGPT-4o (Latest)',
+    // ChatGPT-4o family (recommended)
+    'chatgpt-4o-latest': 'ChatGPT-4o Latest (Recommended)',
     'gpt-4o': 'GPT-4o',
-    'gpt-4o-mini': 'GPT-4o Mini',
+    'gpt-4o-mini': 'GPT-4o Mini (Fast & Affordable)',
     'gpt-4o-2024-11-20': 'GPT-4o (Nov 2024)',
     'gpt-4o-2024-08-06': 'GPT-4o (Aug 2024)',
     'gpt-4o-2024-05-13': 'GPT-4o (May 2024)',
     'gpt-4o-mini-2024-07-18': 'GPT-4o Mini (Jul 2024)',
-    'o1-preview': 'O1 Preview',
-    'o1-preview-2024-09-12': 'O1 Preview (Sep 2024)',
-    'o1-mini': 'O1 Mini',
-    'o1-mini-2024-09-12': 'O1 Mini (Sep 2024)',
-    'gpt-4-turbo': 'GPT-4 Turbo',
-    'gpt-4-turbo-2024-04-09': 'GPT-4 Turbo (Apr 2024)',
-    'gpt-4-turbo-preview': 'GPT-4 Turbo Preview',
-    'gpt-4-0125-preview': 'GPT-4 Turbo (Jan 2024)',
-    'gpt-4-1106-preview': 'GPT-4 Turbo (Nov 2023)',
-    'gpt-4': 'GPT-4',
-    'gpt-4-0613': 'GPT-4 (Jun 2023)',
-    'gpt-3.5-turbo': 'GPT-3.5 Turbo',
+
+    // GPT-3.5 family (fast and cheap)
+    'gpt-3.5-turbo': 'GPT-3.5 Turbo (Fastest)',
     'gpt-3.5-turbo-0125': 'GPT-3.5 Turbo (Jan 2024)',
     'gpt-3.5-turbo-1106': 'GPT-3.5 Turbo (Nov 2023)'
   };
@@ -98,9 +91,7 @@ function formatModelLabel(modelId) {
   // Fallback: clean up the model ID for display
   return modelId
     .replace('gpt-', 'GPT-')
-    .replace('o1-', 'O1-')
     .replace('chatgpt-', 'ChatGPT-')
-    .replace('-preview', ' Preview')
     .replace('-turbo', ' Turbo')
     .replace('-mini', ' Mini');
 }
@@ -131,46 +122,36 @@ async function fetchOpenAIModels(apiKey) {
       return { success: false, models: null, error: 'Unexpected response format' };
     }
 
-    // Filter for chat completion models by excluding known non-chat models
+    // Curated list of models optimized for short text summaries
+    // These models are tested and known to work with the extension
+    const recommendedModels = [
+      'chatgpt-4o-latest',    // Latest ChatGPT-4o (best quality)
+      'gpt-4o',               // GPT-4o (fast, high quality)
+      'gpt-4o-mini',          // GPT-4o Mini (fast, cost-effective)
+      'gpt-4o-2024-11-20',    // GPT-4o snapshot
+      'gpt-4o-2024-08-06',    // GPT-4o snapshot
+      'gpt-4o-mini-2024-07-18', // GPT-4o Mini snapshot
+      'gpt-3.5-turbo',        // GPT-3.5 Turbo (fastest, cheapest)
+      'gpt-3.5-turbo-0125',   // GPT-3.5 Turbo snapshot
+    ];
+
+    // Filter for recommended models only
     const chatModels = data.data
       .filter(model => {
         const id = model.id.toLowerCase();
-        // Exclude non-chat models
-        if (id.includes('embedding')) return false; // text-embedding-*
-        if (id.includes('whisper')) return false; // whisper-1
-        if (id.includes('tts')) return false; // tts-1, tts-1-hd
-        if (id.includes('dall-e')) return false; // dall-e-2, dall-e-3
-        if (id.includes('davinci-002')) return false; // text-davinci-002 (legacy)
-        if (id.includes('babbage')) return false; // babbage (legacy)
-        if (id.includes('ada')) return false; // ada (legacy)
-        if (id.includes('curie')) return false; // curie (legacy)
 
-        // Include all GPT and O1 models (chat completion models)
-        if (id.includes('gpt')) return true;
-        if (id.includes('o1')) return true;
-        if (id.includes('chatgpt')) return true;
-
-        // Exclude everything else by default
-        return false;
+        // Only include models from recommended list
+        return recommendedModels.some(recommended =>
+          id === recommended.toLowerCase() || id.startsWith(recommended.toLowerCase())
+        );
       })
       .sort((a, b) => {
-        const priority = {
-          'chatgpt-4o-latest': 1,
-          'gpt-4o': 2,
-          'gpt-4o-mini': 3,
-          'o1-preview': 4,
-          'o1-mini': 5,
-          'o1': 6,
-          'gpt-4-turbo': 7,
-          'gpt-4': 8,
-          'gpt-3.5-turbo': 9
-        };
-
+        // Sort by priority order in recommendedModels list
         const getPriority = (id) => {
-          for (const [key, val] of Object.entries(priority)) {
-            if (id.startsWith(key)) return val;
-          }
-          return 999;
+          const index = recommendedModels.findIndex(recommended =>
+            id.toLowerCase().startsWith(recommended.toLowerCase())
+          );
+          return index === -1 ? 999 : index;
         };
 
         return getPriority(a.id) - getPriority(b.id);
@@ -246,20 +227,23 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
     }
   ];
 
-  // Determine if model uses max_completion_tokens (newer models) or max_tokens (legacy models)
-  // Legacy models: gpt-3.5-turbo, gpt-4 (base), gpt-4-turbo (all non-4o gpt-4 variants)
-  // Newer models: o1, gpt-4o, gpt-5+, chatgpt-*, and future models
+  // Determine model parameters based on model type
   const modelLower = model.toLowerCase();
+
+  // Legacy models: gpt-3.5-turbo, gpt-4 (base), gpt-4-turbo (all non-4o gpt-4 variants)
   const isLegacyModel =
     modelLower.startsWith('gpt-3.5') ||
     (modelLower.startsWith('gpt-4') && !modelLower.includes('4o'));
 
+  // Models that don't support temperature parameter
+  const noTemperatureSupport =
+    modelLower.includes('o1') ||      // O1 models
+    modelLower.startsWith('gpt-5');   // GPT-5 models (only support default temperature)
+
+  // Newer models use max_completion_tokens instead of max_tokens
   const usesMaxCompletionTokens = !isLegacyModel;
 
-  console.log(`[OpenAI API] Model: ${model}, Legacy: ${isLegacyModel}, Using max_completion_tokens: ${usesMaxCompletionTokens}`);
-
-  // O1 models don't support temperature parameter (case-insensitive check)
-  const isO1Model = modelLower.includes('o1');
+  console.log(`[OpenAI API] Model: ${model}, Legacy: ${isLegacyModel}, Temperature: ${!noTemperatureSupport}, max_completion_tokens: ${usesMaxCompletionTokens}`);
 
   // Build request body with appropriate parameters
   const requestBody = {
@@ -267,8 +251,8 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
     messages: messages
   };
 
-  // Only add temperature for non-O1 models
-  if (!isO1Model) {
+  // Only add temperature for models that support it
+  if (!noTemperatureSupport) {
     requestBody.temperature = 0.7;
   }
 
