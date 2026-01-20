@@ -8,6 +8,7 @@ class ModalUI {
   static currentData = null;
   static currentVideoId = null; // Track which video the modal is showing
   static escapeHandler = null;
+  static isRegenerating = false; // Prevent double-click during regeneration
 
   /**
    * Create and display modal with transcript/summary data
@@ -94,6 +95,9 @@ class ModalUI {
       </div>
 
       <div class="yte-modal-footer">
+        <button class="yte-btn yte-btn-regenerate" data-action="regenerate">
+          ${hasSummary ? '🔄 Regenerate' : '✨ Generate Summary'}
+        </button>
         <button class="yte-btn yte-btn-primary" data-action="copy-transcript">Copy Transcript</button>
         ${hasSummary ? `
           <button class="yte-btn yte-btn-secondary" data-action="copy-summary">Copy Summary</button>
@@ -221,6 +225,14 @@ class ModalUI {
         this._copyToClipboard(data.summary.result, 'Summary copied!', 'summary');
       });
     }
+
+    // Regenerate button
+    const regenerateBtn = modal.querySelector('[data-action="regenerate"]');
+    if (regenerateBtn) {
+      regenerateBtn.addEventListener('click', () => this._handleRegenerate(data));
+      // Check AI config and update button state
+      this._checkAIConfigAndUpdateButton(modal);
+    }
   }
 
   /**
@@ -273,6 +285,138 @@ class ModalUI {
     } catch (err) {
       Utils.logError('ModalUI._copyToClipboard', err);
       this._showToast('Copy failed. Please try again.', 'error');
+    }
+  }
+
+  /**
+   * Handle regenerate button click
+   * @private
+   * @param {Object} data - Current modal data
+   */
+  static async _handleRegenerate(data) {
+    // Prevent double-click
+    if (this.isRegenerating) {
+      console.log('[ModalUI] Already regenerating, ignoring click');
+      return;
+    }
+
+    // Check Chrome API availability
+    if (!Utils.isChromeAPIAvailable()) {
+      this._showToast('Extension was reloaded. Please refresh the page.', 'error');
+      return;
+    }
+
+    // Check AI configuration
+    try {
+      const settings = await chrome.storage.sync.get(['apiProvider', 'apiKey', 'customPrompt', 'model']);
+      if (!settings.apiProvider || !settings.apiKey || !settings.customPrompt) {
+        this._showToast('Please configure AI settings first.', 'info');
+        return;
+      }
+
+      // Set regenerating state
+      this.isRegenerating = true;
+      this._updateRegenerateButton(true);
+
+      console.log('[ModalUI] Starting regeneration...');
+
+      // Call regenerateSummary
+      const newSummary = await TranscriptOrchestrator.regenerateSummary(
+        data.videoId,
+        data.transcript.raw
+      );
+
+      if (newSummary) {
+        // Update current data
+        this.currentData.summary = newSummary;
+
+        // Update modal content
+        const modal = document.getElementById(this.MODAL_ID);
+        const isDark = modal.classList.contains('yte-dark');
+
+        if (modal) {
+          modal.innerHTML = this._buildModalHTML(this.currentData);
+          this._attachEventListeners(modal, this.currentData);
+
+          // Switch to summary tab
+          this._switchTab('summary');
+        }
+
+        this._showToast('Summary regenerated!', 'success');
+        console.log('[ModalUI] Summary regenerated successfully');
+      } else {
+        this._showToast('Failed to regenerate summary.', 'error');
+        console.error('[ModalUI] Regeneration failed');
+      }
+    } catch (error) {
+      Utils.logError('ModalUI._handleRegenerate', error);
+      this._showToast('Failed to regenerate summary.', 'error');
+    } finally {
+      this.isRegenerating = false;
+      this._updateRegenerateButton(false);
+    }
+  }
+
+  /**
+   * Update regenerate button state
+   * @private
+   * @param {boolean} isLoading - Whether regeneration is in progress
+   */
+  static _updateRegenerateButton(isLoading) {
+    const modal = document.getElementById(this.MODAL_ID);
+    if (!modal) return;
+
+    const regenerateBtn = modal.querySelector('[data-action="regenerate"]');
+    if (!regenerateBtn) return;
+
+    if (isLoading) {
+      regenerateBtn.disabled = true;
+      regenerateBtn.classList.add('yte-regenerating');
+      regenerateBtn.innerHTML = '⏳ Regenerating...';
+    } else {
+      regenerateBtn.disabled = false;
+      regenerateBtn.classList.remove('yte-regenerating');
+      const hasSummary = this.currentData && this.currentData.summary && this.currentData.summary.result;
+      regenerateBtn.innerHTML = hasSummary ? '🔄 Regenerate' : '✨ Generate Summary';
+    }
+  }
+
+  /**
+   * Check AI configuration and update button visibility/state
+   * @private
+   * @param {HTMLElement} modal - Modal element
+   */
+  static async _checkAIConfigAndUpdateButton(modal) {
+    const regenerateBtn = modal.querySelector('[data-action="regenerate"]');
+    if (!regenerateBtn) return;
+
+    // Check if Chrome APIs are available
+    if (!Utils.isChromeAPIAvailable()) {
+      regenerateBtn.style.display = 'none';
+      return;
+    }
+
+    try {
+      const settings = await chrome.storage.sync.get(['apiProvider', 'apiKey', 'customPrompt']);
+      const isAIConfigured = settings.apiProvider && settings.apiKey && settings.customPrompt;
+      const hasSummary = this.currentData && this.currentData.summary && this.currentData.summary.result;
+
+      if (!isAIConfigured && !hasSummary) {
+        // No AI config and no summary - hide button
+        regenerateBtn.style.display = 'none';
+      } else if (!isAIConfigured && hasSummary) {
+        // Has summary but no AI config - disable with tooltip
+        regenerateBtn.disabled = true;
+        regenerateBtn.title = 'Configure AI settings to regenerate';
+      } else {
+        // AI configured - enable button
+        regenerateBtn.disabled = false;
+        regenerateBtn.style.display = '';
+        regenerateBtn.title = '';
+      }
+    } catch (error) {
+      // If we can't check settings, hide the button
+      regenerateBtn.style.display = 'none';
     }
   }
 
@@ -361,6 +505,7 @@ class ModalUI {
     this.isOpen = false;
     this.currentData = null;
     this.currentVideoId = null; // Clear tracked videoId
+    this.isRegenerating = false; // Reset regeneration state
     console.log('[ModalUI] Modal closed');
   }
 

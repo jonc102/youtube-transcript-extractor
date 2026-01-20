@@ -322,6 +322,40 @@
   transform: translateY(0);
 }
 
+/* === REGENERATE BUTTON === */
+.yte-btn-regenerate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--yte-hover);
+  color: var(--yte-text);
+  border: 2px solid var(--yte-border);
+}
+
+.yte-btn-regenerate:hover:not(:disabled) {
+  background: var(--yte-border);
+  transform: translateY(-1px);
+}
+
+.yte-btn-regenerate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.yte-btn-regenerate.yte-regenerating {
+  animation: yte-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes yte-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* === TOAST NOTIFICATIONS === */
 .yte-toast {
   position: fixed;

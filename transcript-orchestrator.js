@@ -195,6 +195,47 @@ class TranscriptOrchestrator {
   }
 
   /**
+   * Regenerate AI summary for a video
+   * @param {string} videoId - YouTube video ID
+   * @param {string} transcript - Raw transcript text
+   * @returns {Promise<Object|null>} - New summary object or null on failure
+   */
+  static async regenerateSummary(videoId, transcript) {
+    console.log(`[Orchestrator] Regenerating summary for video: ${videoId}`);
+
+    // Check if Chrome APIs are available
+    if (!Utils.isChromeAPIAvailable()) {
+      console.error('[Orchestrator] Extension context invalidated during regeneration');
+      return null;
+    }
+
+    try {
+      const isDark = ThemeDetector.isDarkMode();
+
+      // Process with AI using current settings
+      const aiResult = await this._processWithAI(transcript, isDark);
+
+      if (aiResult) {
+        // Update cache with new summary
+        const cachedData = await CacheManager.getCachedData(videoId);
+        if (cachedData) {
+          cachedData.summary = aiResult;
+          cachedData.timestamp = Date.now();
+          await CacheManager.setCachedData(videoId, cachedData);
+          console.log('[Orchestrator] Cache updated with regenerated summary');
+        }
+
+        return aiResult;
+      }
+
+      return null;
+    } catch (error) {
+      Utils.logError('Orchestrator.regenerateSummary', error, { videoId });
+      return null;
+    }
+  }
+
+  /**
    * Display modal with data
    * @private
    * @param {Object} data - Data to display
