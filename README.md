@@ -2,51 +2,35 @@
 
 A Chrome extension that extracts transcripts from YouTube videos and optionally processes them using AI (OpenAI or Claude).
 
-**Current Version:** 3.0.5
+**Current Version:** 3.1.0
 
-## What's New in v3.0.5
+## What's New in v3.1.0
 
-🐛 **Extension Context Error Handling:**
+**Apple/iOS Native UI Redesign** - Complete visual overhaul:
 
-- **Fixed Extension Reload Errors** - Extension now gracefully handles being reloaded at `chrome://extensions/`
-- **Clear Error Messages** - Shows user-friendly modal: "Extension was reloaded. Please refresh (F5)"
-- **Improved API Checks** - Added `Utils.isChromeAPIAvailable()` to verify Chrome APIs before use
-- **No More Cryptic Errors** - Prevents "Cannot read properties of undefined" console errors
+- **SF Pro System Font** - Native Apple font stack across all surfaces
+- **Apple HIG Colors** - System blue, grouped backgrounds, HIG-compliant palette
+- **Frosted Glass Modal** - Semi-transparent background with backdrop blur effect
+- **iOS Segmented Control** - Tabs replaced with native-feeling segmented control
+- **Flat Buttons** - Opacity hover, no shadows or transform effects
+- **Clean Labels** - All emoji removed from UI controls for a refined look
+- **Pill-Shaped Toasts** - Centered bottom notifications with frosted glass
+- **SVG Settings Icon** - Clean vector gear icon replacing emoji
 
-## What's New in v3.0.2
+## Previous Releases
 
-🐛 **Bug Fixes:**
+**v3.0.6** - Regenerate AI summary button in modal footer
 
-- **Fixed Stale Modal Data** - Modal now automatically closes when navigating between videos, preventing old video transcripts from displaying
-- **Improved Navigation Handling** - Added currentVideoId tracking to ensure correct video data is always shown
-- **Fixed Markdown Rendering** - Bold (`**text**`) and italic (`*text*`) formatting now properly displays in AI summaries, including in list items and headers
+**v3.0.5** - Extension context invalidation error handling
 
-## What's New in v3.0.1
-
-🎨 **Modal UI Refinements:**
-
-- **AI Summary First** - When AI summary exists, it now shows as the default active tab
-- **Settings Gear Icon** - Quick access to settings directly from the modal header (⚙️)
-- **Floating Corner Modal** - Modal now appears in bottom-right corner without backdrop overlay, keeping video accessible
-
-## What's New in v3.0.0
-
-🎉 **Major Update!** YouTube Transcript Extractor now features:
-
-- **📄 In-Page Button** - Get transcripts directly from the YouTube sidebar (no need to open the extension!)
-- **💾 Smart Caching** - Transcripts and AI summaries are cached locally for instant access
-- **🎨 Floating Modal UI** - Bottom-right corner modal with auto-detected light/dark theme
-- **🚀 Dual Entry Points** - Use the in-page button OR the extension icon - both work seamlessly
-- **⚡ Lightning Fast** - Cached transcripts load instantly
-- **🌙 Theme Detection** - Automatically matches YouTube's current theme
-- **⚙️ Quick Settings Access** - Settings gear icon in modal for easy configuration
+**v3.0.0** - Major release: in-page button, smart caching, floating modal UI, dual entry points, theme detection
 
 ## Features
 
 - **Two ways to access:** In-page button (desktop only) or extension icon
 - **Smart caching:** Transcripts and AI summaries cached for the 10 most recent videos
-- **Floating modal interface:** Bottom-right corner modal that keeps video accessible
-- **Quick settings access:** Settings gear icon (⚙️) in modal header
+- **Frosted glass modal:** Bottom-right corner modal with backdrop blur, keeps video accessible
+- **Quick settings access:** Settings gear icon in modal header
 - **AI Summary prioritized:** When AI summary exists, it shows as the default tab
 - **Extract transcripts** from any YouTube video with captions
 - **Timestamps included** with each transcript line
@@ -77,14 +61,14 @@ Clone or download this repository to your local machine. All necessary files inc
 ### Quick Access (In-Page Button - Desktop Only)
 
 1. Navigate to any YouTube video (desktop only, not mobile)
-2. Look for the **"📄 Get Transcript"** button in the sidebar (above related videos)
+2. Look for the **"Get Transcript"** button in the sidebar (above related videos)
 3. Click the button
 4. A modal will appear in the bottom-right corner with the transcript
-   - **First time:** Button shows "📄 Get Transcript" and extracts the transcript
-   - **Cached:** Button shows "📄 View Transcript" and loads instantly
+   - **First time:** Button shows "Get Transcript" and extracts the transcript
+   - **Cached:** Button shows "View Transcript" and loads instantly
    - **AI Summary tab:** Shown first when AI summary exists
-5. Use the tabs to switch between "Transcript" and "AI Summary" (if configured)
-6. Click the **gear icon (⚙️)** in the modal header to access Settings
+5. Use the segmented control tabs to switch between "Transcript" and "Summary" (if configured)
+6. Click the **gear icon** in the modal header to access Settings
 7. Click "Copy Transcript" or "Copy Summary" to copy to clipboard
 8. Video remains playable while modal is open
 
@@ -95,11 +79,11 @@ Clone or download this repository to your local machine. All necessary files inc
 3. Click "Extract & Copy Transcript" button
 4. A modal will appear in the bottom-right corner of the YouTube page with the transcript
 5. The popup will automatically close after opening the modal
-6. Click the **gear icon (⚙️)** in the modal header to access Settings (or use the gear icon in the popup)
+6. Click the **gear icon** in the modal header to access Settings (or use the gear icon in the popup)
 
 ### Advanced Usage (AI Processing)
 
-1. Click the **gear icon (⚙️)** to open Settings (available in extension popup OR modal header)
+1. Click the **gear icon** to open Settings (available in extension popup OR modal header)
 2. Select your **API Provider** (OpenAI or Claude)
 3. Enter your **API Key**
    - For OpenAI: Get your key from [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
@@ -173,7 +157,7 @@ The output will be whatever your AI model generates based on your custom prompt.
 - The extension only works on video pages, not the homepage or other YouTube pages
 
 **"Could not establish connection" error**
-- Reload the extension: Go to `chrome://extensions/` and click the refresh icon 🔄
+- Reload the extension: Go to `chrome://extensions/` and click the refresh icon
 - Refresh the YouTube page
 - Try clicking the extension button again
 
@@ -189,7 +173,7 @@ The output will be whatever your AI model generates based on your custom prompt.
 - Verify your API key has permissions to list/use models
 - For OpenAI: Ensure your account has credits
 - For Claude: Ensure your API key is active
-- Click the refresh button (🔄) to retry
+- Click the Refresh button to retry
 
 **"AI processing failed"**
 - Check your API key is valid and not expired
@@ -199,7 +183,7 @@ The output will be whatever your AI model generates based on your custom prompt.
 
 **Models not loading automatically**
 - After entering your API key, click outside the input field (blur event)
-- Or click the refresh button (🔄) next to the model dropdown
+- Or click the Refresh button next to the model dropdown
 - Check browser console for any error messages
 
 ## Files

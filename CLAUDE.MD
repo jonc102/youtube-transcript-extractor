@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 3.0.6
-**Branch Strategy:** `main` is the stable branch (contains v3.0.6). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 3.1.0
+**Branch Strategy:** `main` is the stable branch (contains v3.1.0). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -301,28 +301,31 @@ Creates and manages a floating modal in the bottom-right corner:
 
 **v3.0.1 Features:**
 1. **AI Summary Default Tab:** When `data.summary` exists, AI Summary tab is active by default
-2. **Settings Gear Icon:** Header includes ⚙️ button that opens settings.html in new tab
+2. **Settings Gear Icon:** Header includes SVG gear button that opens settings.html in new tab
 3. **Floating Corner Design:** Modal appears in bottom-right without backdrop, keeping video accessible
 
 **Modal structure:**
 ```html
 <div class="yte-modal yte-dark">  <!-- Appended directly to document.body -->
   <div class="yte-modal-header">
-    <h2>📄 Transcript & Summary</h2>
+    <h2>Transcript & Summary</h2>
     <div class="yte-modal-header-actions">
-      <button class="yte-modal-settings">⚙️</button>
+      <button class="yte-modal-settings"><svg><!-- gear icon --></svg></button>
       <button class="yte-modal-close">×</button>
     </div>
   </div>
   <div class="yte-modal-tabs">
-    <button class="yte-tab-btn">Transcript</button>
-    <button class="yte-tab-btn yte-active">AI Summary ✨</button>  <!-- Active if summary exists -->
+    <div class="yte-modal-tabs-container">  <!-- iOS segmented control -->
+      <button class="yte-tab-btn">Transcript</button>
+      <button class="yte-tab-btn yte-active">Summary</button>  <!-- Active if summary exists -->
+    </div>
   </div>
   <div class="yte-modal-content">
     <div class="yte-tab-content">...</div>
-    <div class="yte-tab-content yte-active">...</div>  <!-- AI Summary active by default -->
+    <div class="yte-tab-content yte-active">...</div>  <!-- Summary active by default -->
   </div>
   <div class="yte-modal-footer">
+    <button data-action="regenerate">Regenerate</button>
     <button data-action="copy-transcript">Copy Transcript</button>
     <button data-action="copy-summary">Copy Summary</button>
   </div>
@@ -336,28 +339,33 @@ Creates and manages a floating modal in the bottom-right corner:
 
 #### modal-styles.css (Modal Styling)
 
-Styles for the floating corner modal with theme support:
-- CSS variables for light/dark themes
-- `.yte-modal` - Floating corner positioning
+Apple HIG flat design styles for the floating corner modal:
+- CSS variables for light/dark themes (Apple HIG color palette)
+- `.yte-modal` - Frosted glass floating corner (`backdrop-filter: blur(20px)`)
 - `.yte-modal-header-actions` - Flex container for settings + close buttons
-- `.yte-modal-settings` - Settings gear icon button
-- `.yte-tab-btn` - Tab buttons with active state
-- `.yte-toast` - Toast notifications for copy feedback
+- `.yte-modal-settings` - SVG gear icon button (no emoji)
+- `.yte-modal-tabs-container` - iOS segmented control (pill bg, active white/dark surface)
+- `.yte-tab-btn` - Segmented control segments with active shadow
+- `.yte-toast` - Pill-shaped, centered bottom, frosted glass background
+- `.yte-btn` - Flat buttons with opacity hover (no box-shadow, no translateY)
 - Responsive: full-screen on mobile (≤768px)
+- Font: SF Pro system font stack (`-apple-system, BlinkMacSystemFont, ...`)
 
-**Theme variables:**
+**Theme variables (Apple HIG):**
 ```css
 .yte-modal.yte-light {
-  --yte-bg: #ffffff;
-  --yte-text: #030303;
-  --yte-accent: #065fd4;
+  --yte-bg: #F2F2F7;         /* systemGroupedBackground */
+  --yte-text: #1C1C1E;       /* label */
+  --yte-accent: #007AFF;     /* systemBlue */
+  --yte-modal-bg: rgba(255, 255, 255, 0.85);  /* frosted glass */
   /* ... */
 }
 
 .yte-modal.yte-dark {
-  --yte-bg: #212121;
-  --yte-text: #f1f1f1;
-  --yte-accent: #3ea6ff;
+  --yte-bg: #1C1C1E;         /* systemBackground */
+  --yte-text: #FFFFFF;        /* label */
+  --yte-accent: #0A84FF;     /* systemBlue */
+  --yte-modal-bg: rgba(28, 28, 30, 0.85);     /* frosted glass */
   /* ... */
 }
 ```
@@ -389,8 +397,8 @@ Injects "Get Transcript" button into YouTube sidebar:
 - Button appears above related videos in right sidebar
 - Uses MutationObserver to detect navigation (YouTube is SPA)
 - Button text changes based on cache state:
-  - "📄 Get Transcript" - First time (not cached)
-  - "📄 View Transcript" - Cached (instant load)
+  - "Get Transcript" - First time (not cached)
+  - "View Transcript" - Cached (instant load)
 - Clicking button calls `TranscriptOrchestrator.extract()`
 
 **Button placement:**
@@ -447,7 +455,26 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
 
 ## Version History
 
-**v3.0.6** (2026-01-20) - Current
+**v3.1.0** (2026-01-30) - Current
+- **Apple/iOS Native UI Redesign**: Full visual overhaul to Apple HIG flat aesthetic
+  - SF Pro system font stack (`-apple-system, BlinkMacSystemFont, ...`) throughout all surfaces
+  - Apple HIG color palette: `#007AFF`/`#0A84FF` system blue, `#F2F2F7`/`#1C1C1E` backgrounds
+  - Frosted glass modal with `backdrop-filter: blur(20px)` and semi-transparent background
+  - iOS segmented control tabs replacing underline-style tabs
+  - Flat buttons with opacity hover (removed all `box-shadow`, `translateY`, `filter: brightness` effects)
+  - Pill-shaped centered toast notifications with frosted glass background
+  - Removed all emoji from UI controls (clean text labels only)
+  - SVG gear icon replacing emoji settings button in modal
+  - Settings: uppercase letterspaced section headers, filled inputs (no border), text Show/Hide toggle
+  - Settings: refresh button uses "Refresh" text instead of emoji
+  - In-page button: clean labels ("Get Transcript", "View Transcript", "Loading...", "Try Again")
+  - Thinner scrollbars (6px) with subtle colors
+  - Subtle error state (background tint only, no left border bar, no emoji)
+  - All `::before` content emoji pseudo-elements removed from status/toast/error/info messages
+  - Uses `:focus-visible` instead of `:focus` for keyboard-only focus rings
+  - 10px border radius on buttons and inputs (Apple standard)
+
+**v3.0.6** (2026-01-20)
 - **Regenerate AI Summary Feature**: Added ability to regenerate or generate AI summaries from modal
   - New "Regenerate" / "Generate Summary" button in modal footer
   - Button state adapts based on AI configuration and existing summary
@@ -525,8 +552,8 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
   - 2px blue focus outlines on all interactive elements
   - ARIA labels for icon buttons
   - Proper keyboard navigation support
-- **Typography**: Roboto font family throughout, consistent weight hierarchy
-- **Border Radius**: Standardized 8px rounded corners for modern look
+- **Typography**: Roboto font family throughout, consistent weight hierarchy (superseded by SF Pro in v3.1.0)
+- **Border Radius**: Standardized 8px rounded corners for modern look (updated to 10px in v3.1.0)
 
 **v3.0.3** (2026-01-19)
 - UI improvements for better engagement
@@ -598,11 +625,11 @@ Manual testing required (no automated tests):
 
 ### Dual Entry Points (v3.0)
 - [ ] In-page button appears in sidebar (desktop only)
-- [ ] In-page button is crimson red (#dc143c) with white text
-- [ ] In-page button text: "🎬 TL;DR This Video" (first time)
-- [ ] In-page button text: "✨ View TL;DR" (cached)
-- [ ] Loading state: "🤖 Teaching AI to Watch..."
-- [ ] Error state: "😵 Oops, Try Again"
+- [ ] In-page button is Apple system blue with white text
+- [ ] In-page button text: "Get Transcript" (first time)
+- [ ] In-page button text: "View Transcript" (cached)
+- [ ] Loading state: "Loading..."
+- [ ] Error state: "Try Again"
 - [ ] Extension icon popup opens on YouTube video pages
 - [ ] Both entry points open the same modal on YouTube page
 
@@ -612,7 +639,7 @@ Manual testing required (no automated tests):
 - [ ] Video player remains clickable and playable with modal open
 - [ ] AI Summary tab is active by default (when summary exists)
 - [ ] Transcript tab is active by default (when no summary)
-- [ ] Settings gear icon (⚙️) appears in modal header
+- [ ] Settings gear icon (SVG) appears in modal header
 - [ ] Clicking settings gear opens settings.html in new tab
 - [ ] Close button (×) closes modal
 - [ ] Escape key closes modal
@@ -622,7 +649,10 @@ Manual testing required (no automated tests):
 - [ ] Rich text copy: Paste summary in Google Docs shows formatted text (bold, lists, etc.)
 - [ ] Rich text copy: Paste summary in VS Code shows plain markdown
 - [ ] Rich text copy: Transcript copies as plain text with timestamps
-- [ ] Theme matches YouTube (light/dark)
+- [ ] iOS segmented control tabs switch correctly
+- [ ] Frosted glass modal background with blur effect
+- [ ] Toast notifications are pill-shaped and centered
+- [ ] No emoji visible in any UI controls
 - [ ] Mobile: modal is full-screen (≤768px)
 
 ### Caching System (v3.0)
@@ -674,7 +704,7 @@ Manual testing required (no automated tests):
 ## Git Workflow
 
 **Branches:**
-- `main` - Stable branch (contains v3.0.1). Default branch on GitHub.
+- `main` - Stable branch (contains v3.1.0). Default branch on GitHub.
 - `v2.0`, `v3.0` - Version branches (merged into main)
 - `v2.0-feature-expansion`, `v3-enhancements` - Feature branches (archived)
 - `v1.1-timestamp` - Old stable branch name (replaced by main, can be deleted)
@@ -687,5 +717,5 @@ Manual testing required (no automated tests):
 
 ---
 
-**Last Updated:** 2026-01-20
-**Current Version:** 3.0.6
+**Last Updated:** 2026-01-30
+**Current Version:** 3.1.0
