@@ -110,11 +110,11 @@ document.addEventListener('DOMContentLoaded', async function() {
   toggleApiKeyBtn.addEventListener('click', function() {
     if (apiKeyInput.type === 'password') {
       apiKeyInput.type = 'text';
-      toggleApiKeyBtn.textContent = '🙈';
+      toggleApiKeyBtn.textContent = 'Hide';
       toggleApiKeyBtn.setAttribute('aria-label', 'Hide API key');
     } else {
       apiKeyInput.type = 'password';
-      toggleApiKeyBtn.textContent = '👁️';
+      toggleApiKeyBtn.textContent = 'Show';
       toggleApiKeyBtn.setAttribute('aria-label', 'Show API key');
     }
   });

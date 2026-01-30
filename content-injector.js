@@ -184,8 +184,8 @@ class ContentInjector {
     this.button = document.createElement('button');
     this.button.id = 'yte-transcript-button';
     this.button.className = 'yte-inject-btn';
-    this.button.innerHTML = isCached ? '✨ View TL;DR' : '🎬 TL;DR This Video';
-    this.button.setAttribute('aria-label', isCached ? 'View cached AI summary' : 'Get AI summary of video');
+    this.button.innerHTML = isCached ? 'View Transcript' : 'Get Transcript';
+    this.button.setAttribute('aria-label', isCached ? 'View cached transcript' : 'Get transcript of video');
 
     // Style button
     this._styleButton();
@@ -206,49 +206,36 @@ class ContentInjector {
   _styleButton() {
     const isDark = ThemeDetector.isDarkMode();
 
-    // YouTube blue colors (v3.0.4 design system)
-    const primaryColor = isDark ? '#3ea6ff' : '#065fd4';
-    const hoverColor = isDark ? '#66b6ff' : '#0449af';
+    // Apple HIG system blue
+    const primaryColor = isDark ? '#0A84FF' : '#007AFF';
 
     // Inline styles for button
     Object.assign(this.button.style, {
       width: '100%',
       padding: '12px 16px',
       marginBottom: '16px',
-      fontSize: '14px',
-      fontWeight: '600',
-      border: `1px solid ${primaryColor}`,
-      borderRadius: '8px',
+      fontSize: '15px',
+      fontWeight: '500',
+      border: 'none',
+      borderRadius: '10px',
       background: primaryColor,
       color: '#ffffff',
       cursor: 'pointer',
-      transition: 'all 0.2s',
-      fontFamily: 'Roboto, Arial, sans-serif',
+      transition: 'opacity 0.15s ease',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       gap: '8px'
     });
 
-    // Hover effect
+    // Hover: opacity change
     this.button.addEventListener('mouseenter', () => {
-      this.button.style.background = hoverColor;
-      this.button.style.borderColor = hoverColor;
+      this.button.style.opacity = '0.85';
     });
 
     this.button.addEventListener('mouseleave', () => {
-      this.button.style.background = primaryColor;
-      this.button.style.borderColor = primaryColor;
-    });
-
-    // Focus effect
-    this.button.addEventListener('focus', () => {
-      this.button.style.outline = '2px solid ' + (isDark ? '#3ea6ff' : '#065fd4');
-      this.button.style.outlineOffset = '2px';
-    });
-
-    this.button.addEventListener('blur', () => {
-      this.button.style.outline = 'none';
+      this.button.style.opacity = '1';
     });
   }
 
@@ -297,10 +284,10 @@ class ContentInjector {
     if (!this.button) return;
 
     const states = {
-      default: '🎬 TL;DR This Video',
-      loading: '🤖 Teaching AI to Watch...',
-      cached: '✨ View TL;DR',
-      error: '😵 Oops, Try Again'
+      default: 'Get Transcript',
+      loading: 'Loading...',
+      cached: 'View Transcript',
+      error: 'Try Again'
     };
 
     this.button.innerHTML = states[state] || states.default;
@@ -308,10 +295,10 @@ class ContentInjector {
 
     // Update aria-label
     const labels = {
-      default: 'Get AI summary of video',
-      loading: 'AI is analyzing the video',
-      cached: 'View cached AI summary',
-      error: 'Summary extraction failed'
+      default: 'Get transcript of video',
+      loading: 'Extracting transcript',
+      cached: 'View cached transcript',
+      error: 'Extraction failed, try again'
     };
 
     this.button.setAttribute('aria-label', labels[state] || labels.default);
