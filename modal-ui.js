@@ -65,22 +65,24 @@ class ModalUI {
 
     return `
       <div class="yte-modal-header">
-        <h2 id="yte-modal-title">📄 Transcript${hasSummary ? ' & Summary' : ''}</h2>
+        <h2 id="yte-modal-title">Transcript${hasSummary ? ' & Summary' : ''}</h2>
         <div class="yte-modal-header-actions">
-          <button class="yte-modal-settings" aria-label="Open settings">⚙️</button>
+          <button class="yte-modal-settings" aria-label="Open settings"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></button>
           <button class="yte-modal-close" aria-label="Close transcript modal">&times;</button>
         </div>
       </div>
 
       <div class="yte-modal-tabs">
-        <button class="yte-tab-btn ${hasSummary ? '' : 'yte-active'}" data-tab="transcript" role="tab" aria-selected="${hasSummary ? 'false' : 'true'}" aria-controls="yte-tab-transcript">
-          Transcript
-        </button>
-        ${hasSummary ? `
-          <button class="yte-tab-btn yte-active" data-tab="summary" role="tab" aria-selected="true" aria-controls="yte-tab-summary">
-            AI Summary ✨ ${summaryLabel}
+        <div class="yte-modal-tabs-container" role="tablist">
+          <button class="yte-tab-btn ${hasSummary ? '' : 'yte-active'}" data-tab="transcript" role="tab" aria-selected="${hasSummary ? 'false' : 'true'}" aria-controls="yte-tab-transcript">
+            Transcript
           </button>
-        ` : ''}
+          ${hasSummary ? `
+            <button class="yte-tab-btn yte-active" data-tab="summary" role="tab" aria-selected="true" aria-controls="yte-tab-summary">
+              Summary ${summaryLabel ? '(' + summaryLabel + ')' : ''}
+            </button>
+          ` : ''}
+        </div>
       </div>
 
       <div class="yte-modal-content">
@@ -96,7 +98,7 @@ class ModalUI {
 
       <div class="yte-modal-footer">
         <button class="yte-btn yte-btn-regenerate" data-action="regenerate">
-          ${hasSummary ? '🔄 Regenerate' : '✨ Generate Summary'}
+          ${hasSummary ? 'Regenerate' : 'Generate Summary'}
         </button>
         <button class="yte-btn yte-btn-primary" data-action="copy-transcript">Copy Transcript</button>
         ${hasSummary ? `
@@ -372,12 +374,12 @@ class ModalUI {
     if (isLoading) {
       regenerateBtn.disabled = true;
       regenerateBtn.classList.add('yte-regenerating');
-      regenerateBtn.innerHTML = '⏳ Regenerating...';
+      regenerateBtn.innerHTML = 'Regenerating...';
     } else {
       regenerateBtn.disabled = false;
       regenerateBtn.classList.remove('yte-regenerating');
       const hasSummary = this.currentData && this.currentData.summary && this.currentData.summary.result;
-      regenerateBtn.innerHTML = hasSummary ? '🔄 Regenerate' : '✨ Generate Summary';
+      regenerateBtn.innerHTML = hasSummary ? 'Regenerate' : 'Generate Summary';
     }
   }
 
@@ -540,13 +542,13 @@ class ModalUI {
 
     modal.innerHTML = `
       <div class="yte-modal-header">
-        <h2>🤖 Teaching AI to Watch YouTube...</h2>
+        <h2>Extracting Transcript...</h2>
         <button class="yte-modal-close" aria-label="Close">&times;</button>
       </div>
       <div class="yte-modal-content">
         <div class="yte-loading">
           <div class="yte-spinner"></div>
-          <span>Showing AI how to binge-watch (it learns fast, promise!)</span>
+          <span>Loading transcript data...</span>
         </div>
       </div>
     `;
