@@ -213,9 +213,9 @@ if (!forceRefresh && cachedModels[provider]) {
 When user enters API key and moves to next field, automatically fetches available models.
 
 **Claude Model List:**
-Hardcoded in two places (settings.js and background.js) because Claude doesn't expose a public models endpoint.
+Hardcoded in background.js only (settings.js delegates via message passing). Claude doesn't expose a public models endpoint.
 
-Current models (as of v2.2.0):
+Current models (as of v3.1.0):
 - claude-opus-4-5-20251101 (Latest)
 - claude-sonnet-4-5-20250929
 - claude-haiku-4-5-20251001
@@ -493,74 +493,15 @@ These may fail on slow connections. Consider using `MutationObserver` for more r
   - Added guard checks in TranscriptOrchestrator before accessing chrome.storage
 
 **v3.0.4** (2026-01-19)
-- **Complete UI/UX Modernization**: Unified design system across all interfaces
-- **Dark/Light Theme Support**: Auto-detection with system preference sync
-  - Added CSS variables for consistent theming
-  - Settings page, popup, and modal all support dark mode
-- **Color System Overhaul**: Replaced all red accents with YouTube-style blue
-  - Light theme: #065fd4 (YouTube blue)
-  - Dark theme: #3ea6ff (bright blue)
-  - All buttons, links, and interactive elements updated
-- **Modern Button Styling**: Elevation effects and smooth animations
-  - Hover: translateY(-1px) with enhanced shadow
-  - Primary buttons: Box shadow depth on interaction
-  - Secondary buttons: 2px borders with hover states
-- **Enhanced Status Messages**: Emoji icons for all feedback
-  - Success: ✅, Error: ❌, Info: ℹ️
-  - Consistent across popup, settings, and modal
-- **Settings Page Polish**:
-  - Password toggle integrated inside input field (👁️/🙈 icons)
-  - Info messages with ℹ️ icon prefix
-  - Section headers with blue accent bars
-  - Improved spacing (12-24px padding system)
-  - Hover effects on sections and buttons
-- **Popup Improvements**:
-  - Blue "Extract & Copy Transcript" button
-  - Settings gear with rotation animation
-  - Modern status messages with icons
-  - Theme-aware scrollbars and code blocks
-- **Modal Enhancements**:
-  - Settings gear rotates 45° and turns blue on hover
-  - Copy buttons with elevation on hover
-  - Toast notifications include emoji icons
-  - Error messages with ❌ icon prefix
-- **Rich Text Copy Support**: Intelligent clipboard formatting
-  - Summaries copy as both plain markdown and formatted HTML
-  - Transcripts copy as plain text with timestamps preserved
-  - Automatic format detection based on paste target
-  - Paste in Google Docs/Word → Formatted text with bold, lists, headers
-  - Paste in VS Code/terminals → Clean markdown source
-  - Uses modern Clipboard API with dual MIME types (text/plain, text/html)
-  - Graceful fallback for browsers without ClipboardItem support
-- **Arc Browser Compatibility Fix**:
-  - Fixed settings page blocking in Arc Browser
-  - Changed from window.open() to chrome.tabs.create()
-  - Settings button in modal now opens via background script
-- **Improved Model Selection**:
-  - Enhanced OpenAI model filtering to show all available chat models
-  - User-friendly model labels (e.g., "GPT-4o", "O1 Preview")
-  - Exclusive filtering (excludes non-chat models) instead of inclusive
-  - Supports new model names like 'chatgpt-4o-latest'
-  - Debug console logging for troubleshooting model access
-- **OpenAI API Compatibility Fix**:
-  - Fixed parameter compatibility for newer OpenAI models
-  - Uses `max_completion_tokens` for O1/GPT-4o/ChatGPT-4o models
-  - Uses `max_tokens` for legacy models (GPT-3.5, GPT-4, GPT-4-turbo)
-  - Excludes `temperature` parameter for O1 models (not supported)
-  - Backward and forward compatible across all model generations
-- **Accessibility Improvements**:
-  - 2px blue focus outlines on all interactive elements
-  - ARIA labels for icon buttons
-  - Proper keyboard navigation support
-- **Typography**: Roboto font family throughout, consistent weight hierarchy (superseded by SF Pro in v3.1.0)
-- **Border Radius**: Standardized 8px rounded corners for modern look (updated to 10px in v3.1.0)
+- Complete UI/UX modernization: unified design system, dark/light theme support, CSS variables
+- Rich text copy support (dual MIME: text/plain + text/html for formatted paste in Docs/Word)
+- Arc Browser compatibility fix (chrome.tabs.create instead of window.open)
+- OpenAI API compatibility fix (max_completion_tokens for newer models, temperature exclusion for O1)
+- Improved OpenAI model filtering and user-friendly labels
+- Accessibility: focus outlines, ARIA labels, keyboard navigation
 
 **v3.0.3** (2026-01-19)
-- UI improvements for better engagement
-- Changed in-page button to crimson red (#dc143c) for higher visibility
-- Updated button text to casual/fun CTA: "🎬 TL;DR This Video"
-- Added playful loading messages: "🤖 Teaching AI to Watch YouTube..."
-- Enhanced button states with emoji: "✨ View TL;DR", "😵 Oops, Try Again"
+- UI engagement improvements: button styling and text updates (superseded by v3.1.0)
 
 **v3.0.2** (2026-01-19)
 - Fixed stale modal data on video navigation
@@ -739,5 +680,5 @@ Manual testing required (no automated tests):
 
 ---
 
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-02-14
 **Current Version:** 3.1.0
