@@ -715,6 +715,28 @@ Manual testing required (no automated tests):
 3. All pull requests should target `main` branch
 4. After merging, version branches can be kept for reference
 
+### Pre-Commit Documentation Checklist
+
+**Before every commit and push**, ensure the following documentation is up to date with the changes being committed:
+
+**CLAUDE.md updates (required if any of these changed):**
+- [ ] Version number in "Project Overview" and "Last Updated" footer
+- [ ] Version History section with new entry describing the changes
+- [ ] Architecture Overview if files were added, removed, or renamed
+- [ ] Component descriptions if behavior or API of a component changed
+- [ ] Key Components section if new functions, parameters, or message types were added
+- [ ] Critical Code Patterns if new patterns were introduced
+- [ ] Testing Checklist if new testable behavior was added
+- [ ] Known Limitations if new limitations were introduced or existing ones resolved
+
+**README.md updates (required if any of these changed):**
+- [ ] Version number and feature descriptions
+- [ ] Installation or usage instructions if the user-facing workflow changed
+- [ ] Screenshots or feature list if visible UI changed
+- [ ] Any user-facing information that no longer matches the code
+
+**Rule:** Do not commit code changes without also committing the corresponding documentation updates in the same commit. If only documentation changed, that's fine as a standalone commit.
+
 ---
 
 **Last Updated:** 2026-01-30
