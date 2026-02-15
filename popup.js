@@ -31,39 +31,16 @@ document.addEventListener('DOMContentLoaded', async function() {
   const settingsBtn = document.getElementById('settingsBtn');
   const statusDiv = document.getElementById('status');
   const statusText = document.getElementById('statusText');
-  const copyTranscriptBtn = document.getElementById('copyTranscriptBtn');
-  const transcriptPreview = document.getElementById('transcriptPreview');
-
-  let originalTranscript = ''; // Store the original transcript
 
   settingsBtn.addEventListener('click', function() {
     window.location.href = 'settings.html';
   });
 
-  // Handle copy transcript button click
-  copyTranscriptBtn.addEventListener('click', async function() {
-    if (originalTranscript) {
-      try {
-        await navigator.clipboard.writeText(originalTranscript);
-        const originalText = statusText.textContent;
-        statusText.textContent = 'Original transcript copied!';
-        setTimeout(() => {
-          statusText.textContent = originalText;
-        }, 2000);
-      } catch (error) {
-        console.error('Failed to copy transcript:', error);
-      }
-    }
-  });
-
   extractBtn.addEventListener('click', async function() {
-    // Clear previous status and preview
+    // Clear previous status
     statusText.textContent = 'Opening modal...';
     statusDiv.className = 'status info';
-    copyTranscriptBtn.style.display = 'none';
-    transcriptPreview.textContent = '';
     extractBtn.disabled = true;
-    originalTranscript = '';
 
     try {
       // Get the active tab

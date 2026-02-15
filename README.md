@@ -2,22 +2,22 @@
 
 A Chrome extension that extracts transcripts from YouTube videos and optionally processes them using AI (OpenAI or Claude).
 
-**Current Version:** 3.1.0
+**Current Version:** 4.0.0
 
-## What's New in v3.1.0
+## What's New in v4.0.0
 
-**Apple/iOS Native UI Redesign** - Complete visual overhaul:
-
-- **SF Pro System Font** - Native Apple font stack across all surfaces
-- **Apple HIG Colors** - System blue, grouped backgrounds, HIG-compliant palette
-- **Frosted Glass Modal** - Semi-transparent background with backdrop blur effect
-- **iOS Segmented Control** - Tabs replaced with native-feeling segmented control
-- **Flat Buttons** - Opacity hover, no shadows or transform effects
-- **Clean Labels** - All emoji removed from UI controls for a refined look
-- **Pill-Shaped Toasts** - Centered bottom notifications with frosted glass
-- **SVG Settings Icon** - Clean vector gear icon replacing emoji
+- **Conversational AI Chat** - Chat with AI about video content after summary is generated. iMessage-style bubbles, typing indicator, chat history persisted in cache.
+- **Streaming AI Responses** - Real-time text streaming for summaries via Port-based messaging with SSE parsing. Progressive text display with blinking cursor.
+- **Faster Transcript Extraction** - MutationObserver replaces fixed delays, saving 1-2 seconds per uncached extraction.
+- **Minimize Modal** - Collapse modal to a frosted glass pill in the bottom-right corner. Expand restores full state (tab, scroll, chat).
+- **Floating FAB Entry Point** - Distinctive purple floating pill button with extension icon, replacing sidebar integration.
+- **Claude Opus 4.6** - Added as the latest Claude model option.
+- **GPT-5-nano Improvements** - Model-specific token limits, retry with exponential backoff for transient errors.
+- **Code Refactoring** - Centralized constants, deleted dead code, shared API helpers.
 
 ## Previous Releases
+
+**v3.1.0** - Apple/iOS native UI redesign with frosted glass, segmented controls, flat buttons
 
 **v3.0.6** - Regenerate AI summary button in modal footer
 
@@ -27,8 +27,11 @@ A Chrome extension that extracts transcripts from YouTube videos and optionally 
 
 ## Features
 
-- **Two ways to access:** In-page button (desktop only) or extension icon
-- **Smart caching:** Transcripts and AI summaries cached for the 10 most recent videos
+- **Two ways to access:** Floating purple FAB (desktop only) or extension icon
+- **AI Chat:** Chat with AI about video content after generating a summary
+- **Streaming responses:** AI summaries stream in real-time with progressive text display
+- **Smart caching:** Transcripts, AI summaries, and chat history cached for the 10 most recent videos
+- **Minimize modal:** Collapse to a frosted glass pill, expand to restore full state
 - **Frosted glass modal:** Bottom-right corner modal with backdrop blur, keeps video accessible
 - **Quick settings access:** Settings gear icon in modal header
 - **AI Summary prioritized:** When AI summary exists, it shows as the default tab
@@ -39,7 +42,7 @@ A Chrome extension that extracts transcripts from YouTube videos and optionally 
 - **Dynamic Model Selection** - Automatically fetches available models from your API account
 - **Settings Panel** - Easy-to-use interface for API configuration
 - **Theme-aware** - Automatically matches YouTube's light/dark mode
-- **Copy to clipboard** with one click for both transcript and AI summary
+- **Copy to clipboard** with one click for both transcript and AI summary (rich text support)
 - **Clean interface** with automatic transcript panel opening
 
 ## Installation
@@ -58,19 +61,21 @@ Clone or download this repository to your local machine. All necessary files inc
 
 ## Usage
 
-### Quick Access (In-Page Button - Desktop Only)
+### Quick Access (Floating FAB - Desktop Only)
 
 1. Navigate to any YouTube video (desktop only, not mobile)
-2. Look for the **"Get Transcript"** button in the sidebar (above related videos)
+2. Look for the purple **"Get Transcript"** floating pill button in the bottom-right corner
 3. Click the button
 4. A modal will appear in the bottom-right corner with the transcript
-   - **First time:** Button shows "Get Transcript" and extracts the transcript
+   - **First time:** Button shows "Get Transcript" and extracts the transcript (with streaming AI summary)
    - **Cached:** Button shows "View Transcript" and loads instantly
    - **AI Summary tab:** Shown first when AI summary exists
 5. Use the segmented control tabs to switch between "Transcript" and "Summary" (if configured)
-6. Click the **gear icon** in the modal header to access Settings
-7. Click "Copy Transcript" or "Copy Summary" to copy to clipboard
-8. Video remains playable while modal is open
+6. **Chat:** Below the summary, use the chat input to ask questions about the video
+7. **Minimize:** Click the minus button to collapse the modal to a small pill
+8. Click the **gear icon** in the modal header to access Settings
+9. Click "Copy Transcript" or "Copy Summary" to copy to clipboard
+10. Video remains playable while modal is open
 
 ### Extension Icon Method (Works Everywhere)
 
@@ -136,7 +141,7 @@ The output will be whatever your AI model generates based on your custom prompt.
 
 ### Caching System
 - **10 most recent videos** are cached locally in your browser
-- Cached data includes: transcript, AI summary (if processed), video title, timestamp
+- Cached data includes: transcript, AI summary (if processed), chat history, video title, timestamp
 - Cache persists across browser sessions (doesn't expire)
 - When you revisit a video, the modal opens instantly with cached data
 - Oldest videos are automatically removed when the cache reaches 10 videos (LRU eviction)
@@ -192,19 +197,20 @@ The output will be whatever your AI model generates based on your custom prompt.
 - `manifest.json` - Extension configuration and permissions
 - `popup.html/js/css` - Extension popup interface
 - `settings.html/js/css` - Settings page interface
-- `api.js` - OpenAI and Claude API integration
-- `background.js` - Service worker for API calls (CORS bypass)
+- `background.js` - Service worker for API calls, streaming ports, chat handlers (CORS bypass)
 - `CLAUDE.md` - Technical documentation for developers
 
 ### Content Scripts (run on YouTube pages)
+- `constants.js` - Shared constants (timing, selectors, limits)
 - `utils.js` - Shared utility functions
 - `theme-detector.js` - YouTube theme detection (light/dark mode)
 - `cache-manager.js` - Local cache management with LRU eviction
-- `modal-ui.js` - Modal interface creation and interactions
-- `modal-styles.css` - Modal styling with theme support
-- `transcript-orchestrator.js` - Unified extraction and caching flow
-- `content.js` - YouTube transcript extraction logic
-- `content-injector.js` - In-page button injection with MutationObserver
+- `chat-manager.js` - Per-video chat conversation state management
+- `modal-ui.js` - Modal interface, chat UI, streaming display, minimize
+- `modal-styles.css` - Modal styling with theme support, chat and minimize styles
+- `transcript-orchestrator.js` - Unified extraction, streaming, and chat flow
+- `content.js` - YouTube transcript extraction with MutationObserver
+- `content-injector.js` - Floating purple FAB entry point
 
 ### Assets
 - `icon.svg` - Icon source file (for customization)

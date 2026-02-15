@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YouTube Transcript Extractor",
-  "version": "3.1.0",
-  "description": "Extract YouTube video transcripts with AI processing and in-page access",
+  "version": "4.0.0",
+  "description": "Extract YouTube video transcripts with AI processing, streaming, and conversational chat",
   "permissions": [
     "activeTab",
     "scripting",
@@ -34,9 +34,11 @@
     {
       "matches": ["https://www.youtube.com/*"],
       "js": [
+        "constants.js",
         "utils.js",
         "theme-detector.js",
         "cache-manager.js",
+        "chat-manager.js",
         "modal-ui.js",
         "transcript-orchestrator.js",
         "content.js",

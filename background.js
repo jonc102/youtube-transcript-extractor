@@ -49,6 +49,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Required for async response
   }
 
+  // Chat handlers (multi-turn conversation)
+  if (request.action === 'chatOpenAI') {
+    console.log('[Background] chatOpenAI:', { model: request.model, messageCount: request.messages?.length });
+    chatOpenAI(request.apiKey, request.model, request.messages)
+      .then(result => sendResponse({ success: true, result }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'chatClaude') {
+    console.log('[Background] chatClaude:', { model: request.model, messageCount: request.messages?.length });
+    chatClaude(request.apiKey, request.model, request.messages, request.system)
+      .then(result => sendResponse({ success: true, result }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
   if (request.action === 'openSettings') {
     chrome.tabs.create({
       url: chrome.runtime.getURL('settings.html')
@@ -173,7 +190,8 @@ async function fetchOpenAIModels(apiKey) {
 
 async function fetchClaudeModels(apiKey) {
   const defaultModels = [
-    { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Latest)' },
+    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6 (Latest)' },
+    { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5' },
     { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
     { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
@@ -217,62 +235,125 @@ async function fetchClaudeModels(apiKey) {
   }
 }
 
-async function callOpenAI(apiKey, model, prompt, transcript) {
-  const messages = [
-    {
-      role: 'user',
-      content: prompt + '\n\n' + transcript
-    }
-  ];
+/**
+ * Build OpenAI request headers
+ * @param {string} apiKey - OpenAI API key
+ * @returns {Object} - Headers object
+ */
+function _buildOpenAIHeaders(apiKey) {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`
+  };
+}
 
-  // Determine model parameters based on model type
+/**
+ * Build Claude request headers
+ * @param {string} apiKey - Claude API key
+ * @returns {Object} - Headers object
+ */
+function _buildClaudeHeaders(apiKey) {
+  return {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true'
+  };
+}
+
+/**
+ * Build OpenAI request body with model-specific parameters
+ * @param {string} model - Model ID
+ * @param {Array} messages - Messages array
+ * @param {Object} options - Additional options (e.g. stream)
+ * @returns {Object} - Request body
+ */
+function _buildOpenAIRequestBody(model, messages, options = {}) {
   const modelLower = model.toLowerCase();
 
-  // Legacy models: gpt-3.5-turbo, gpt-4 (base), gpt-4-turbo (all non-4o gpt-4 variants)
   const isLegacyModel =
     modelLower.startsWith('gpt-3.5') ||
     (modelLower.startsWith('gpt-4') && !modelLower.includes('4o'));
 
-  // Models that don't support temperature parameter
   const noTemperatureSupport =
-    modelLower.includes('o1') ||      // O1 models
-    modelLower.startsWith('gpt-5');   // GPT-5 models (only support default temperature)
+    modelLower.includes('o1') ||
+    modelLower.startsWith('gpt-5');
 
-  // Newer models use max_completion_tokens instead of max_tokens
   const usesMaxCompletionTokens = !isLegacyModel;
 
-  console.log(`[OpenAI API] Model: ${model}, Legacy: ${isLegacyModel}, Temperature: ${!noTemperatureSupport}, max_completion_tokens: ${usesMaxCompletionTokens}`);
+  // Model-specific token limits
+  const maxTokens = modelLower === 'gpt-5-nano' ? 2000 : 4000;
 
-  // Build request body with appropriate parameters
   const requestBody = {
     model: model,
-    messages: messages
+    messages: messages,
+    ...options
   };
 
-  // Only add temperature for models that support it
   if (!noTemperatureSupport) {
     requestBody.temperature = 0.7;
   }
 
-  // Use appropriate token parameter name based on model
   if (usesMaxCompletionTokens) {
-    requestBody.max_completion_tokens = 4000;
+    requestBody.max_completion_tokens = maxTokens;
   } else {
-    requestBody.max_tokens = 4000;
+    requestBody.max_tokens = maxTokens;
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(requestBody)
-  });
+  console.log(`[OpenAI API] Model: ${model}, Legacy: ${isLegacyModel}, Temperature: ${!noTemperatureSupport}, max_tokens: ${maxTokens}`);
+
+  return requestBody;
+}
+
+/**
+ * Fetch with retry for transient errors
+ * @param {string} url - Request URL
+ * @param {Object} fetchOptions - fetch() options
+ * @param {number} maxRetries - Max retries
+ * @param {number[]} retryDelays - Delays between retries in ms
+ * @returns {Promise<Response>} - Fetch response
+ */
+async function fetchWithRetry(url, fetchOptions, maxRetries = 2, retryDelays = [1000, 2000]) {
+  const retryableStatusCodes = [429, 500, 502, 503];
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, fetchOptions);
+
+    if (response.ok || !retryableStatusCodes.includes(response.status)) {
+      return response;
+    }
+
+    if (attempt < maxRetries) {
+      const delay = retryDelays[attempt] || retryDelays[retryDelays.length - 1];
+      console.warn(`[API Retry] Status ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    } else {
+      return response;
+    }
+  }
+}
+
+async function callOpenAI(apiKey, model, prompt, transcript) {
+  const messages = [
+    { role: 'user', content: prompt + '\n\n' + transcript }
+  ];
+
+  const requestBody = _buildOpenAIRequestBody(model, messages);
+
+  const response = await fetchWithRetry(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: _buildOpenAIHeaders(apiKey),
+      body: JSON.stringify(requestBody)
+    }
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`);
+    const errorMsg = errorData.error?.message || `OpenAI API error: ${response.status} ${response.statusText}`;
+    console.error(`[OpenAI API Error] Model: ${model}, Status: ${response.status}, Error: ${errorMsg}`);
+    throw new Error(errorMsg);
   }
 
   const data = await response.json();
@@ -285,57 +366,228 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
 }
 
 async function callClaude(apiKey, model, prompt, transcript) {
-  try {
-    console.log('callClaude called with:', {
-      apiKeyLength: apiKey?.length,
-      apiKeyPrefix: apiKey?.substring(0, 10),
-      model: model,
-      promptLength: prompt?.length,
-      transcriptLength: transcript?.length
-    });
+  console.log('[Claude API] callClaude:', { model, promptLength: prompt?.length, transcriptLength: transcript?.length });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetchWithRetry(
+    'https://api.anthropic.com/v1/messages',
+    {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: _buildClaudeHeaders(apiKey),
       body: JSON.stringify({
         model: model,
         max_tokens: 4096,
         messages: [
-          {
-            role: 'user',
-            content: prompt + '\n\n' + transcript
-          }
+          { role: 'user', content: prompt + '\n\n' + transcript }
         ]
       })
-    });
-
-    console.log('Claude API response status:', response.status);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Claude API error response:', JSON.stringify(errorData, null, 2));
-
-      if (errorData.error?.type) {
-        throw new Error(`${errorData.error.type}: ${errorData.error.message || response.statusText}`);
-      }
-
-      throw new Error(errorData.error?.message || `Claude API error: ${response.status} ${response.statusText}`);
     }
+  );
 
-    const data = await response.json();
-
-    if (!data.content || !data.content[0] || !data.content[0].text) {
-      throw new Error('Invalid response format from Claude API');
-    }
-
-    return data.content[0].text;
-  } catch (error) {
-    console.error('Error in callClaude:', error);
-    throw error;
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMsg = errorData.error?.type
+      ? `${errorData.error.type}: ${errorData.error.message || response.statusText}`
+      : (errorData.error?.message || `Claude API error: ${response.status} ${response.statusText}`);
+    console.error(`[Claude API Error] Model: ${model}, Status: ${response.status}, Error: ${errorMsg}`);
+    throw new Error(errorMsg);
   }
+
+  const data = await response.json();
+
+  if (!data.content || !data.content[0] || !data.content[0].text) {
+    throw new Error('Invalid response format from Claude API');
+  }
+
+  return data.content[0].text;
 }
+
+// === Chat functions (multi-turn) ===
+
+async function chatOpenAI(apiKey, model, messages) {
+  const requestBody = _buildOpenAIRequestBody(model, messages);
+
+  const response = await fetchWithRetry(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: _buildOpenAIHeaders(apiKey),
+      body: JSON.stringify(requestBody)
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `OpenAI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data.choices?.[0]?.message) {
+    throw new Error('Invalid response format from OpenAI API');
+  }
+
+  return data.choices[0].message.content;
+}
+
+async function chatClaude(apiKey, model, messages, system) {
+  const body = {
+    model: model,
+    max_tokens: 4096,
+    messages: messages
+  };
+
+  if (system) {
+    body.system = system;
+  }
+
+  const response = await fetchWithRetry(
+    'https://api.anthropic.com/v1/messages',
+    {
+      method: 'POST',
+      headers: _buildClaudeHeaders(apiKey),
+      body: JSON.stringify(body)
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMsg = errorData.error?.type
+      ? `${errorData.error.type}: ${errorData.error.message}`
+      : (errorData.error?.message || `Claude API error: ${response.status}`);
+    throw new Error(errorMsg);
+  }
+
+  const data = await response.json();
+  if (!data.content?.[0]?.text) {
+    throw new Error('Invalid response format from Claude API');
+  }
+
+  return data.content[0].text;
+}
+
+// === Streaming port handlers ===
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'streamOpenAI') {
+    port.onMessage.addListener(async (request) => {
+      try {
+        const messages = [
+          { role: 'user', content: request.prompt + '\n\n' + request.transcript }
+        ];
+
+        const requestBody = _buildOpenAIRequestBody(request.model, messages, { stream: true });
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: _buildOpenAIHeaders(request.apiKey),
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          port.postMessage({ type: 'error', error: errorData.error?.message || `OpenAI API error: ${response.status}` });
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data: ')) continue;
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                port.postMessage({ type: 'chunk', content });
+              }
+            } catch (e) {
+              // Skip malformed SSE chunks
+            }
+          }
+        }
+
+        port.postMessage({ type: 'done' });
+      } catch (error) {
+        try {
+          port.postMessage({ type: 'error', error: error.message });
+        } catch (e) {
+          // Port may be disconnected
+        }
+      }
+    });
+  }
+
+  if (port.name === 'streamClaude') {
+    port.onMessage.addListener(async (request) => {
+      try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: _buildClaudeHeaders(request.apiKey),
+          body: JSON.stringify({
+            model: request.model,
+            max_tokens: 4096,
+            stream: true,
+            messages: [
+              { role: 'user', content: request.prompt + '\n\n' + request.transcript }
+            ]
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMsg = errorData.error?.message || `Claude API error: ${response.status}`;
+          port.postMessage({ type: 'error', error: errorMsg });
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data: ')) continue;
+            const data = trimmed.slice(6);
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                port.postMessage({ type: 'chunk', content: parsed.delta.text });
+              }
+            } catch (e) {
+              // Skip malformed SSE chunks
+            }
+          }
+        }
+
+        port.postMessage({ type: 'done' });
+      } catch (error) {
+        try {
+          port.postMessage({ type: 'error', error: error.message });
+        } catch (e) {
+          // Port may be disconnected
+        }
+      }
+    });
+  }
+});

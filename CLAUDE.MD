@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 3.1.0
-**Branch Strategy:** `main` is the stable branch (contains v3.1.0). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 4.0.0
+**Branch Strategy:** `main` is the stable branch (contains v4.0.0). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -71,17 +71,18 @@ Generates icon16.png, icon48.png, icon128.png from RGB data.
 manifest.json                    # Extension configuration (permissions, content scripts, background worker)
 ├── popup.html/css/js            # Extension popup UI (extract button)
 ├── settings.html/css/js         # Settings page (API keys, prompts, models)
-├── api.js                       # Popup-side API wrapper (routes to background.js)
-├── background.js                # Service worker (CORS bypass for API calls)
+├── background.js                # Service worker (CORS bypass, API calls, streaming ports, chat handlers)
 └── Content Scripts (run on YouTube pages):
+    ├── constants.js             # Shared constants (timing, selectors, limits) — loaded first
     ├── utils.js                 # Shared utility functions (logging, HTML escaping, markdown)
     ├── theme-detector.js        # Detects YouTube light/dark theme
     ├── cache-manager.js         # Local cache with LRU eviction (10 videos)
-    ├── modal-ui.js              # Modal creation, display, interactions
-    ├── modal-styles.css         # Modal styling with theme support
-    ├── transcript-orchestrator.js  # Unified extraction/caching flow
-    ├── content.js               # YouTube transcript extraction logic
-    └── content-injector.js      # Injects in-page "Get Transcript" button
+    ├── chat-manager.js          # Manages per-video chat conversation state
+    ├── modal-ui.js              # Modal creation, display, interactions, chat UI, streaming display
+    ├── modal-styles.css         # Modal styling with theme support, chat styles, minimize styles
+    ├── transcript-orchestrator.js  # Unified extraction/caching/streaming/chat flow
+    ├── content.js               # YouTube transcript extraction with MutationObserver
+    └── content-injector.js      # Floating purple FAB entry point
 ```
 
 ### Message Passing Architecture
@@ -130,6 +131,27 @@ fetch('https://api.openai.com/v1/chat/completions', {
 });
 ```
 
+**Channel 4: Streaming via Ports (Content Script ↔ Background Worker)**
+```javascript
+// transcript-orchestrator.js connects to background.js for streaming
+const port = chrome.runtime.connect({ name: 'streamOpenAI' }); // or 'streamClaude'
+port.postMessage({ apiKey, model, prompt, transcript });
+port.onMessage.addListener((msg) => {
+  if (msg.type === 'chunk') { /* progressive text */ }
+  if (msg.type === 'done') { /* stream complete */ }
+  if (msg.type === 'error') { /* handle error */ }
+});
+```
+
+**Channel 5: Chat Messages (Content Script ↔ Background Worker)**
+```javascript
+// Multi-turn chat via one-shot messages
+chrome.runtime.sendMessage({
+  action: 'chatOpenAI',  // or 'chatClaude'
+  apiKey, model, messages: [{role, content}, ...], system
+});
+```
+
 **Why background.js exists:** Content scripts and popup/settings pages cannot make cross-origin API requests due to CORS. The background service worker bypasses this restriction.
 
 ### Critical Pattern: Async Message Responses
@@ -163,8 +185,14 @@ Acts as a CORS bypass proxy for API calls. Implements:
   - Includes `temperature: 0.7` for non-O1 models, excludes it for O1 models
   - Backward compatible with GPT-3.5/GPT-4, forward compatible with O1/GPT-4o
 - `callClaude(apiKey, model, prompt, transcript)` - Calls Claude messages API (max_tokens 4096)
+- `chatOpenAI(apiKey, model, messages)` - Multi-turn chat via OpenAI (v4.0)
+- `chatClaude(apiKey, model, messages, system)` - Multi-turn chat via Claude with top-level system param (v4.0)
+- `fetchWithRetry(url, options, maxRetries, retryDelays)` - Retry wrapper for transient errors (429, 500, 502, 503)
+- `_buildOpenAIHeaders(apiKey)` / `_buildClaudeHeaders(apiKey)` - Shared header builders
+- `_buildOpenAIRequestBody(model, messages, options)` - Model-specific request body builder (GPT-5-nano: 2000 tokens, others: 4000)
+- Port handlers: `streamOpenAI` / `streamClaude` - SSE streaming via `chrome.runtime.connect()` ports
 
-All functions use `fetch()` with proper authentication headers.
+All functions use `fetch()` with proper authentication headers. Streaming uses `response.body.getReader()` for SSE parsing.
 
 ### content.js (YouTube Transcript Extraction)
 
@@ -172,9 +200,9 @@ Extracts transcripts from YouTube's DOM:
 
 1. Checks if transcript panel is open
 2. If not, clicks "More actions" button → "Show transcript" menu item
-3. Uses fixed delays (800ms, 1500ms) to wait for UI updates
-4. Queries transcript segments: `ytd-transcript-segment-renderer`
-5. Extracts timestamp and text from each segment
+3. Uses MutationObserver (`waitForElement()`) to detect DOM changes, with fixed-delay fallbacks
+4. Queries transcript segments via `YTE_CONSTANTS.SELECTORS.TRANSCRIPT_SEGMENTS`
+5. Extracts timestamp and text from each segment using constant selector arrays
 6. Formats as `[timestamp] text` per line
 
 **Multiple selector fallbacks** for YouTube UI resilience:
@@ -189,12 +217,9 @@ const timestampElement = segment.querySelector('.segment-timestamp') ||
 Flow:
 1. Validates user is on YouTube `/watch?v=` page
 2. Injects `content.js` dynamically if needed
-3. Sends `{ action: 'getTranscript' }` message to content script
-4. Receives transcript data
-5. Loads settings from Chrome storage (`chrome.storage.sync.get()`)
-6. If API configured, calls `processTranscriptWithAI()` via `api.js`
-7. Copies result to clipboard (`navigator.clipboard.writeText()`)
-8. Displays preview (first 300 chars with markdown rendering)
+3. Sends `{ action: 'openTranscriptModal' }` to content script
+4. Content script delegates to `TranscriptOrchestrator.extractAndDisplay()`
+5. Popup closes after modal opens on YouTube page
 
 ### settings.js (Settings Management)
 
@@ -215,8 +240,9 @@ When user enters API key and moves to next field, automatically fetches availabl
 **Claude Model List:**
 Hardcoded in background.js only (settings.js delegates via message passing). Claude doesn't expose a public models endpoint.
 
-Current models (as of v3.1.0):
-- claude-opus-4-5-20251101 (Latest)
+Current models (as of v4.0.0):
+- claude-opus-4-6 (Latest)
+- claude-opus-4-5-20251101
 - claude-sonnet-4-5-20250929
 - claude-haiku-4-5-20251001
 - claude-3-7-sonnet-20250219
@@ -224,26 +250,37 @@ Current models (as of v3.1.0):
 - claude-3-5-haiku-20241022
 - claude-3-opus/sonnet/haiku-202402xx
 
-### api.js (API Client Wrapper)
+### constants.js (Shared Constants)
 
-Thin wrapper that routes API calls from popup.js to background.js:
+Defines `YTE_CONSTANTS` object with:
+- **Timing values:** `TOAST_DURATION`, `MUTATION_TIMEOUT`, `ERROR_RESET_DELAY`, etc.
+- **Cache limits:** `MAX_CACHED_VIDEOS` (10), `MAX_CHAT_MESSAGES` (20)
+- **API defaults:** `DEFAULT_MAX_TOKENS_OPENAI` (4000), `NANO_MAX_TOKENS` (2000), `CHAT_CONTEXT_CHAR_LIMIT` (4000)
+- **Retry settings:** `MAX_RETRIES` (2), `RETRY_DELAYS`, `RETRYABLE_STATUS_CODES`
+- **YouTube selectors:** `SELECTORS.MORE_ACTIONS[]`, `SELECTORS.TRANSCRIPT_SEGMENTS`, `SELECTORS.SEGMENT_TIMESTAMP[]`, `SELECTORS.SEGMENT_TEXT[]`, `SELECTORS.VIDEO_TITLE[]`, `SELECTORS.SIDEBAR[]`, `SELECTORS.MENU_ITEMS`, `SELECTORS.MENU_POPUP`
 
-```javascript
-async function processTranscriptWithAI(apiProvider, apiKey, model, prompt, transcript) {
-  if (apiProvider === 'openai') {
-    return chrome.runtime.sendMessage({ action: 'callOpenAI', ... });
-  } else if (apiProvider === 'claude') {
-    return chrome.runtime.sendMessage({ action: 'callClaude', ... });
-  }
-}
-```
+Loaded first in manifest (before `utils.js`). Object is frozen to prevent mutation.
 
-### v3.0 Components (Content Scripts)
+### chat-manager.js (Chat Conversation State)
+
+Manages per-video chat conversation state:
+- `ChatManager.addMessage(videoId, role, content)` - Appends to in-memory history
+- `ChatManager.getHistory(videoId)` - Returns message array
+- `ChatManager.loadHistory(videoId, history)` - Loads from cache
+- `ChatManager.getConversationPayload(videoId, contextText, provider)` - Builds API messages array with summary as system context
+- `ChatManager.clearHistory(videoId)` - Resets conversation
+- `ChatManager.hasHistory(videoId)` - Boolean check
+
+**Token budget:** Uses summary (~500-1000 tokens) as context instead of full transcript. Falls back to first 4000 chars of transcript if no summary. 20-message limit per video.
+
+**Provider differences:** OpenAI uses system message in messages array. Claude uses top-level `system` parameter.
+
+### v3.0+ Components (Content Scripts)
 
 #### utils.js (Shared Utilities)
 
 Provides shared functions for all content scripts:
-- `Utils.logInfo()`, `Utils.logError()` - Namespaced logging
+- `Utils.logError()` - Structured error logging with context and metadata
 - `Utils.escapeHtml()` - Sanitizes HTML for safe display
 - `Utils.markdownToHtml()` - Converts markdown to HTML for AI summaries
 - `Utils.copyRichText(plainText, html)` - Copies to clipboard with dual format support (plain text + HTML)
@@ -266,18 +303,17 @@ Manages local cache for transcripts and AI summaries:
 - Stores up to 10 most recent videos (LRU eviction)
 - Uses Chrome `chrome.storage.local` (not synced across devices)
 - Cache key: video ID
-- Cache entry: `{ videoId, videoTitle, transcript, summary, timestamp }`
-- Methods: `CacheManager.get()`, `CacheManager.set()`, `CacheManager.has()`
+- Cache entry: `{ videoId, videoTitle, transcript, summary, chatHistory, timestamp }`
+- Methods: `CacheManager.getCachedData()`, `CacheManager.setCachedData()`, `CacheManager.isCacheValid()`
 - Automatic eviction of oldest entries when cache exceeds 10 items
 
 **Storage format:**
 ```javascript
 {
-  'yte-cache': {
-    'videoId1': { videoId, videoTitle, transcript: {...}, summary: {...}, timestamp },
-    'videoId2': { ... },
-    // ... up to 10 entries
-  }
+  'transcript_cache_videoId1': { videoId, videoTitle, transcript: {...}, summary: {...}, chatHistory: [], timestamp },
+  'transcript_cache_videoId2': { ... },
+  'transcript_cache_metadata': { videoIds: [...], lastCleanup: timestamp }
+  // up to 10 entries
 }
 ```
 
@@ -295,9 +331,15 @@ Creates and manages a floating modal in the bottom-right corner:
 - `ModalUI.createModal(data, isDark)` - Creates floating modal directly in document.body
 - `ModalUI.showLoading(isDark)` - Shows loading spinner while extracting
 - `ModalUI.showError(message, isDark)` - Shows error state
-- `ModalUI.close()` - Removes modal from DOM
+- `ModalUI.close()` - Removes modal from DOM, shows FAB
+- `ModalUI.minimize()` - Collapses to pill, preserves state
+- `ModalUI.expand()` - Restores from minimized state
+- `ModalUI.updateStreamingContent(partialText, isFinal)` - Progressive streaming display
 - `ModalUI._switchTab(tabName)` - Switches between Transcript/Summary tabs
-- `ModalUI._copyToClipboard(text, message, type)` - Copies content with rich text support (type: 'transcript' or 'summary')
+- `ModalUI._buildChatHTML(data)` - Renders chat bubbles in Summary tab
+- `ModalUI._appendChatMessage(role, content)` - Appends single bubble without full re-render
+- `ModalUI._handleChatSend(data)` - Reads input, calls orchestrator, appends response
+- `ModalUI._copyToClipboard(text, message, type)` - Copies content with rich text support
 
 **v3.0.1 Features:**
 1. **AI Summary Default Tab:** When `data.summary` exists, AI Summary tab is active by default
@@ -311,18 +353,33 @@ Creates and manages a floating modal in the bottom-right corner:
     <h2>Transcript & Summary</h2>
     <div class="yte-modal-header-actions">
       <button class="yte-modal-settings"><svg><!-- gear icon --></svg></button>
+      <button class="yte-modal-minimize">&minus;</button>  <!-- v4.0 -->
       <button class="yte-modal-close">×</button>
     </div>
   </div>
   <div class="yte-modal-tabs">
     <div class="yte-modal-tabs-container">  <!-- iOS segmented control -->
       <button class="yte-tab-btn">Transcript</button>
-      <button class="yte-tab-btn yte-active">Summary</button>  <!-- Active if summary exists -->
+      <button class="yte-tab-btn yte-active">Summary</button>
     </div>
   </div>
   <div class="yte-modal-content">
     <div class="yte-tab-content">...</div>
-    <div class="yte-tab-content yte-active">...</div>  <!-- Summary active by default -->
+    <div class="yte-tab-content yte-active">
+      <div class="yte-summary-text">...</div>
+      <div class="yte-chat-separator"></div>  <!-- v4.0 -->
+      <div class="yte-chat-area">            <!-- v4.0 -->
+        <button class="yte-chat-clear">Clear chat</button>
+        <div class="yte-chat-messages">
+          <div class="yte-chat-bubble yte-chat-bubble-user">...</div>
+          <div class="yte-chat-bubble yte-chat-bubble-assistant">...</div>
+        </div>
+        <div class="yte-chat-input-row">
+          <input class="yte-chat-input" placeholder="Ask about this video...">
+          <button class="yte-chat-send"><svg><!-- send icon --></svg></button>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="yte-modal-footer">
     <button data-action="regenerate">Regenerate</button>
@@ -342,13 +399,17 @@ Creates and manages a floating modal in the bottom-right corner:
 Apple HIG flat design styles for the floating corner modal:
 - CSS variables for light/dark themes (Apple HIG color palette)
 - `.yte-modal` - Frosted glass floating corner (`backdrop-filter: blur(20px)`)
-- `.yte-modal-header-actions` - Flex container for settings + close buttons
+- `.yte-modal-header-actions` - Flex container for settings + minimize + close buttons
 - `.yte-modal-settings` - SVG gear icon button (no emoji)
+- `.yte-modal-minimize` - Minimize button matching header button style
+- `.yte-modal.yte-minimized` - Frosted glass pill, same fixed bottom-right position
 - `.yte-modal-tabs-container` - iOS segmented control (pill bg, active white/dark surface)
 - `.yte-tab-btn` - Segmented control segments with active shadow
+- `.yte-chat-*` - Chat UI: bubbles (user/assistant), input row, typing indicator
+- `.yte-stream-cursor` - Blinking cursor during streaming
 - `.yte-toast` - Pill-shaped, centered bottom, frosted glass background
 - `.yte-btn` - Flat buttons with opacity hover (no box-shadow, no translateY)
-- Responsive: full-screen on mobile (≤768px)
+- Responsive: full-screen on mobile (≤768px), minimize hidden
 - Font: SF Pro system font stack (`-apple-system, BlinkMacSystemFont, ...`)
 
 **Theme variables (Apple HIG):**
@@ -382,35 +443,37 @@ Orchestrates the entire transcript extraction and display flow:
 5. Display modal with transcript (and AI summary if available)
 
 **API:**
-- `TranscriptOrchestrator.extract(videoId, videoTitle)` - Main entry point
-- Returns: `{ success: true/false, data: {...}, fromCache: true/false }`
+- `TranscriptOrchestrator.extractAndDisplay(videoId, source)` - Main entry point
+- `TranscriptOrchestrator.regenerateSummary(videoId, transcript)` - Regenerate with streaming
+- `TranscriptOrchestrator.sendChatMessage(videoId, userMessage)` - Send chat message
+- `TranscriptOrchestrator._streamFromPort(portName, request)` - Stream AI response via background port
+- `TranscriptOrchestrator._processWithAI(transcript, isDark)` - Streaming-first with non-streaming fallback
 
 **Usage:**
-Called by both popup.js (extension icon) and content-injector.js (in-page button)
+Called by both popup.js (extension icon) and content-injector.js (FAB button)
 
-#### content-injector.js (In-Page Button)
+#### content-injector.js (Floating FAB Entry Point)
 
-Injects "Get Transcript" button into YouTube sidebar:
+Injects a distinctive floating purple pill FAB (Floating Action Button) on YouTube video pages:
 
 **Features:**
 - Desktop only (checks viewport width > 768px)
-- Button appears above related videos in right sidebar
-- Uses MutationObserver to detect navigation (YouTube is SPA)
+- Fixed position: `bottom: 90px; right: 24px;` (above modal area)
+- Purple background (`#6C5CE7`), white text, pill shape (`border-radius: 100px`), shadow
+- Includes extension icon (`icon16.png`) before text label
+- Hover: `scale(1.05)` + enhanced shadow
+- Hides when modal is open, reappears when modal closes
+- `yt-navigate-finish` event listener for SPA navigation (no interval polling)
 - Button text changes based on cache state:
   - "Get Transcript" - First time (not cached)
   - "View Transcript" - Cached (instant load)
-- Clicking button calls `TranscriptOrchestrator.extract()`
+  - "Loading..." - During extraction
+  - "Try Again" - After error
 
 **Button placement:**
 ```javascript
-const relatedContainer = document.querySelector('#related');
-if (relatedContainer) {
-  relatedContainer.insertAdjacentElement('beforebegin', button);
-}
+document.body.appendChild(this.button); // Fixed position, not in sidebar
 ```
-
-**Navigation detection:**
-Uses MutationObserver on `ytd-app` to detect YouTube's client-side navigation and re-inject button on new videos.
 
 ## Critical Code Patterns
 
@@ -445,17 +508,61 @@ const button = document.querySelector('button[aria-label="More actions"]') ||
 
 YouTube frequently updates their DOM structure. Multiple selectors increase resilience.
 
-### Fixed Timing Delays
+### DOM Waiting Strategy
 
-Current implementation uses `setTimeout()` with fixed delays:
-- 800ms after clicking "More actions"
-- 1500ms after clicking "Show transcript"
-
-These may fail on slow connections. Consider using `MutationObserver` for more robust implementation.
+v4.0 uses `MutationObserver` via `waitForElement(selector, timeout)` to detect DOM changes:
+- Watches for menu popup after clicking "More actions"
+- Watches for transcript segments after clicking "Show transcript"
+- Falls back to fixed delays (800ms, 1500ms) if MutationObserver times out (3000ms safety net)
+- Selectors are centralized in `YTE_CONSTANTS.SELECTORS`
 
 ## Version History
 
-**v3.1.0** (2026-01-30) - Current
+**v4.0.0** (2026-02-15) - Current
+- **Conversational AI Chat**: Chat with AI about video content after summary is generated
+  - iMessage-style chat bubbles (user right/accent, assistant left/surface) in Summary tab
+  - Uses summary as system context to manage token budget
+  - 20-message limit per video, history persisted in cache
+  - Typing indicator with pulsing dots, auto-scroll, clear chat button
+  - Chat cleared when summary is regenerated (stale context)
+  - Provider-specific payloads (OpenAI system message vs Claude top-level system param)
+- **Streaming API Responses**: Real-time text streaming for AI summaries
+  - Port-based messaging (`chrome.runtime.connect()`) for streaming
+  - SSE parsing for both OpenAI and Claude streaming endpoints
+  - Progressive text display with blinking cursor, full markdown on completion
+  - `requestAnimationFrame` throttled DOM updates (~60fps)
+  - Fallback to non-streaming if streaming fails
+- **MutationObserver DOM Extraction**: Faster transcript extraction
+  - `waitForElement(selector, timeout)` replaces fixed `setTimeout` delays
+  - 1-2 second savings per uncached extraction
+  - 3000ms timeout safety net with fixed-delay fallback
+- **GPT-5-nano Defensive Improvements**:
+  - Model-specific token limits (GPT-5-nano: 2000, others: 4000)
+  - `fetchWithRetry()` with exponential backoff for transient errors (429, 500, 502, 503)
+  - Max 2 retries, delays: 1s, 2s — applies to all models
+  - Enhanced error logging with model and status details
+- **Claude Opus 4.6**: Added `claude-opus-4-6` as Latest model, Opus 4.5 demoted
+- **Minimize Modal**: Collapse modal to frosted glass pill in bottom-right corner
+  - Preserves state (active tab, scroll position, chat messages)
+  - Expand button restores full modal with saved state
+  - Hidden on mobile (no minimize button on screens ≤768px)
+  - Navigation closes minimized pill
+- **Floating FAB Entry Point**: Distinctive purple floating pill button
+  - Fixed position (`bottom: 90px; right: 24px;`), `#6C5CE7` purple, pill shape
+  - Extension icon (`icon16.png`) + text label
+  - Hover: `scale(1.05)` + enhanced shadow
+  - Hides when modal open, reappears on close
+  - Removed sidebar integration and `setInterval` URL polling
+- **Code Refactoring**:
+  - New `constants.js` with centralized `YTE_CONSTANTS` (timing, selectors, limits)
+  - New `chat-manager.js` for per-video conversation state
+  - Deleted dead `api.js` (never called since v3.0)
+  - Removed unused `originalTranscript`/`copyTranscriptBtn` from popup.js
+  - Removed unused CSS rules from popup.css
+  - Shared header builders and request body builder in background.js
+  - YouTube selectors centralized in constants, used across content.js and utils.js
+
+**v3.1.0** (2026-01-30)
 - **Apple/iOS Native UI Redesign**: Full visual overhaul to Apple HIG flat aesthetic
   - SF Pro system font stack (`-apple-system, BlinkMacSystemFont, ...`) throughout all surfaces
   - Apple HIG color palette: `#007AFF`/`#0A84FF` system blue, `#F2F2F7`/`#1C1C1E` backgrounds
@@ -564,13 +671,12 @@ Manual testing required (no automated tests):
 - [ ] Timestamps formatted correctly `[0:00] text`
 - [ ] Error messages for videos without transcripts
 
-### Dual Entry Points (v3.0)
-- [ ] In-page button appears in sidebar (desktop only)
-- [ ] In-page button is Apple system blue with white text
-- [ ] In-page button text: "Get Transcript" (first time)
-- [ ] In-page button text: "View Transcript" (cached)
-- [ ] Loading state: "Loading..."
-- [ ] Error state: "Try Again"
+### Entry Points (v4.0)
+- [ ] Purple floating FAB pill appears in bottom-right (desktop only)
+- [ ] FAB has extension icon + text label
+- [ ] FAB text: "Get Transcript" (first time), "View Transcript" (cached)
+- [ ] FAB hover: scale up + enhanced shadow
+- [ ] FAB hides when modal opens, reappears when modal closes
 - [ ] Extension icon popup opens on YouTube video pages
 - [ ] Both entry points open the same modal on YouTube page
 
@@ -596,6 +702,48 @@ Manual testing required (no automated tests):
 - [ ] No emoji visible in any UI controls
 - [ ] Mobile: modal is full-screen (≤768px)
 
+### Chat (v4.0)
+- [ ] Chat input appears below summary in Summary tab
+- [ ] Chat input disabled with message when no summary exists
+- [ ] Send message via Enter key
+- [ ] Send message via circular send button
+- [ ] User messages appear right-aligned with accent color
+- [ ] Assistant messages appear left-aligned with surface color
+- [ ] Typing indicator (pulsing dots) while waiting for response
+- [ ] Chat works with OpenAI models
+- [ ] Chat works with Claude models
+- [ ] Chat history persists across minimize/expand
+- [ ] Chat history clears when summary is regenerated
+- [ ] "Clear chat" button appears when messages exist
+- [ ] Chat scrolls to newest message
+- [ ] Max 20 messages enforced
+
+### Streaming (v4.0)
+- [ ] Summary text appears progressively during streaming
+- [ ] Blinking cursor visible during stream
+- [ ] Full markdown rendered on stream completion
+- [ ] Streaming works with OpenAI
+- [ ] Streaming works with Claude
+- [ ] Fallback to non-streaming if streaming fails
+- [ ] Closing modal during stream doesn't cause errors
+
+### Minimize (v4.0)
+- [ ] Minimize button (&minus;) appears in modal header
+- [ ] Clicking minimize collapses to frosted glass pill
+- [ ] Pill shows truncated video title
+- [ ] Expand button restores full modal
+- [ ] Active tab preserved after expand
+- [ ] Scroll position preserved after expand
+- [ ] Chat history preserved after expand
+- [ ] Navigation closes minimized pill
+- [ ] No minimize button on mobile (≤768px)
+
+### GPT-5-nano (v4.0)
+- [ ] GPT-5-nano uses 2000 token limit
+- [ ] Transient errors (429, 500, 502, 503) trigger retry
+- [ ] Max 2 retries with 1s, 2s delays
+- [ ] Detailed error messages displayed in toast
+
 ### Caching System (v3.0)
 - [ ] First extraction caches transcript
 - [ ] Revisiting cached video loads instantly
@@ -616,15 +764,18 @@ Manual testing required (no automated tests):
 
 ## Known Limitations
 
-1. **YouTube UI Dependency:** Relies on specific DOM selectors that may break when YouTube updates
-2. **Fixed Timing Delays:** 800ms/1500ms delays may not work on slow connections
+1. **YouTube UI Dependency:** Relies on specific DOM selectors that may break when YouTube updates (centralized in `constants.js`)
+2. **MutationObserver + Fallback Delays:** MutationObserver with 3s timeout, falls back to fixed delays if observer fails
 3. **Only `/watch?v=` URLs:** Doesn't work on playlists, channels, homepage
-4. **In-page button desktop only:** Button only appears on desktop (viewport > 768px) due to YouTube's sidebar layout
+4. **FAB desktop only:** Floating button only appears on desktop (viewport > 768px)
 5. **Cache size limit:** Only 10 most recent videos cached (LRU eviction)
 6. **Cache not synced:** Cache uses `chrome.storage.local` and doesn't sync across devices
 7. **Claude Model List Hardcoded:** No public API endpoint, must update manually when new models release
-8. **Token Limits:** OpenAI max_tokens=4000, Claude max_tokens=4096 - long transcripts may be truncated
-9. **Modal z-index conflicts:** Modal uses z-index 999999, may conflict with other extensions or YouTube overlays
+8. **Token Limits:** OpenAI max_tokens=4000 (GPT-5-nano: 2000), Claude max_tokens=4096
+9. **Modal z-index conflicts:** Modal uses z-index 999999, FAB uses 999998
+10. **Chat context limited:** Chat uses summary (not full transcript) as context to manage tokens. Max 20 messages per video.
+11. **Streaming partial markdown:** During streaming, raw text is shown (not rendered markdown). Full markdown rendered on completion.
+12. **MV3 service worker timeout:** Active fetch keeps service worker alive, but streaming may disconnect on very long responses (30s idle timeout)
 
 ## Security Notes
 
@@ -645,7 +796,7 @@ Manual testing required (no automated tests):
 ## Git Workflow
 
 **Branches:**
-- `main` - Stable branch (contains v3.1.0). Default branch on GitHub.
+- `main` - Stable branch (contains v4.0.0). Default branch on GitHub.
 - `v2.0`, `v3.0` - Version branches (merged into main)
 - `v2.0-feature-expansion`, `v3-enhancements` - Feature branches (archived)
 - `v1.1-timestamp` - Old stable branch name (replaced by main, can be deleted)
@@ -680,5 +831,5 @@ Manual testing required (no automated tests):
 
 ---
 
-**Last Updated:** 2026-02-14
-**Current Version:** 3.1.0
+**Last Updated:** 2026-02-15
+**Current Version:** 4.0.0

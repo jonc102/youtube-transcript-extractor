@@ -1,19 +1,17 @@
 // Content Injector for YouTube Transcript Extractor
-// Injects "Get Transcript" button into YouTube sidebar
+// Injects floating FAB (Floating Action Button) on YouTube video pages
 
 class ContentInjector {
   constructor() {
     this.button = null;
-    this.observer = null;
-    this.urlCheckInterval = null; // Track interval for cleanup
-    this.lastVideoId = null; // Track last videoId
+    this.lastVideoId = null;
     this.isDesktop = Utils.isDesktop();
 
     // Only inject on desktop
     if (this.isDesktop) {
       this.init();
     } else {
-      console.log('[ContentInjector] Mobile detected, skipping button injection');
+      console.log('[ContentInjector] Mobile detected, skipping FAB injection');
     }
   }
 
@@ -21,14 +19,10 @@ class ContentInjector {
    * Initialize injector
    */
   init() {
-    // Inject immediately if sidebar already exists
     this.injectButton();
 
     // Watch for YouTube SPA navigation
     this.observeNavigation();
-
-    // Watch for sidebar changes (delayed load)
-    this.observeSidebar();
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => this.destroy());
@@ -40,12 +34,11 @@ class ContentInjector {
    * Observe YouTube SPA navigation events
    */
   observeNavigation() {
-    // YouTube fires custom events on navigation
     window.addEventListener('yt-navigate-finish', () => {
       console.log('[ContentInjector] YouTube navigation detected');
 
-      // Close any open modal when navigating away
-      if (window.ModalUI && ModalUI.isOpen) {
+      // Close any open or minimized modal when navigating away
+      if (window.ModalUI && (ModalUI.isOpen || ModalUI.isMinimized)) {
         console.log('[ContentInjector] Closing modal due to navigation');
         ModalUI.close();
       }
@@ -56,195 +49,113 @@ class ContentInjector {
         this.removeButton();
       }
     });
-
-    // Also watch for URL changes (fallback)
-    let lastUrl = window.location.href;
-    this.urlCheckInterval = setInterval(() => {
-      const currentUrl = window.location.href;
-      if (currentUrl !== lastUrl) {
-        lastUrl = currentUrl;
-        console.log('[ContentInjector] URL changed');
-
-        // Close modal on URL change
-        if (window.ModalUI && ModalUI.isOpen) {
-          console.log('[ContentInjector] Closing modal due to URL change');
-          ModalUI.close();
-        }
-
-        if (Utils.isVideoPage()) {
-          this.injectButton();
-        } else {
-          this.removeButton();
-        }
-      }
-    }, 1000);
   }
 
   /**
-   * Observe sidebar changes with MutationObserver
-   */
-  observeSidebar() {
-    this.observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          const sidebar = this._findSidebar();
-          if (sidebar && !this.button && Utils.isVideoPage()) {
-            console.log('[ContentInjector] Sidebar detected via MutationObserver');
-            this.injectButton();
-            break;
-          }
-        }
-      }
-    });
-
-    // Watch entire body for sidebar appearance
-    this.observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  }
-
-  /**
-   * Find YouTube sidebar element
-   * @private
-   * @returns {HTMLElement|null} - Sidebar element
-   */
-  _findSidebar() {
-    // Multiple selectors for YouTube's sidebar
-    const selectors = [
-      '#secondary #related',
-      'ytd-watch-flexy #secondary #related',
-      '#secondary.ytd-watch-flexy'
-    ];
-
-    for (const selector of selectors) {
-      const sidebar = document.querySelector(selector);
-      if (sidebar) {
-        return sidebar;
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Inject button into sidebar
+   * Inject floating FAB button
    */
   async injectButton() {
-    // Don't inject if not on video page
     if (!Utils.isVideoPage()) {
-      console.log('[ContentInjector] Not on video page, skipping injection');
-      return;
-    }
-
-    const sidebar = this._findSidebar();
-    if (!sidebar) {
-      console.log('[ContentInjector] Sidebar not found, waiting...');
       return;
     }
 
     const videoId = Utils.getCurrentVideoId();
     if (!videoId) {
-      console.log('[ContentInjector] No video ID found');
       return;
     }
 
     // If button exists for different video, remove and recreate
     if (this.button && this.lastVideoId && this.lastVideoId !== videoId) {
-      console.log(`[ContentInjector] Video changed from ${this.lastVideoId} to ${videoId}, recreating button`);
       this.removeButton();
     }
 
-    // Store current videoId
     this.lastVideoId = videoId;
 
     // Don't inject if button already exists for this video
     if (this.button && document.body.contains(this.button)) {
-      console.log('[ContentInjector] Button already injected');
       return;
     }
 
-    // Check if cached (may fail if extension context invalidated)
+    // Check if cached
     let isCached = false;
     try {
       isCached = await CacheManager.isCacheValid(videoId);
     } catch (error) {
-      // Silently handle context invalidated errors
       if (Utils.isContextInvalidatedError(error)) {
-        console.warn('[ContentInjector] Extension context invalidated. Button will show default state.');
-      } else {
-        console.error('[ContentInjector] Cache check failed:', error);
+        console.warn('[ContentInjector] Extension context invalidated.');
       }
     }
 
     // Remove old button if it exists
     this.removeButton();
 
-    // Create button
+    // Create FAB
     this.button = document.createElement('button');
     this.button.id = 'yte-transcript-button';
-    this.button.className = 'yte-inject-btn';
-    this.button.innerHTML = isCached ? 'View Transcript' : 'Get Transcript';
+    this.button.className = 'yte-fab';
     this.button.setAttribute('aria-label', isCached ? 'View cached transcript' : 'Get transcript of video');
 
-    // Style button
-    this._styleButton();
+    // Build inner HTML with extension icon + text
+    const iconUrl = typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime.getURL('icon16.png') : '';
+    const labelText = isCached ? 'View Transcript' : 'Get Transcript';
+    this.button.innerHTML = `${iconUrl ? `<img src="${iconUrl}" alt="" width="16" height="16" class="yte-fab-icon">` : ''}<span class="yte-fab-label">${labelText}</span>`;
 
-    // Attach click handler (no videoId parameter - will be extracted on click)
+    // Apply inline styles for FAB
+    this._styleFAB();
+
+    // Attach click handler
     this.button.addEventListener('click', () => this._handleButtonClick());
 
-    // Insert before related videos
-    sidebar.parentElement.insertBefore(this.button, sidebar);
+    // Append to body (fixed position)
+    document.body.appendChild(this.button);
 
-    console.log(`[ContentInjector] Button injected for video: ${videoId} (cached: ${isCached})`);
+    console.log(`[ContentInjector] FAB injected for video: ${videoId} (cached: ${isCached})`);
   }
 
   /**
-   * Style button to match YouTube's design
+   * Style FAB as floating purple pill
    * @private
    */
-  _styleButton() {
-    const isDark = ThemeDetector.isDarkMode();
-
-    // Apple HIG system blue
-    const primaryColor = isDark ? '#0A84FF' : '#007AFF';
-
-    // Inline styles for button
+  _styleFAB() {
     Object.assign(this.button.style, {
-      width: '100%',
-      padding: '12px 16px',
-      marginBottom: '16px',
-      fontSize: '15px',
-      fontWeight: '500',
+      position: 'fixed',
+      bottom: '90px',
+      right: '24px',
+      zIndex: '999998',
+      padding: '10px 18px',
+      fontSize: '14px',
+      fontWeight: '600',
       border: 'none',
-      borderRadius: '10px',
-      background: primaryColor,
+      borderRadius: '100px',
+      background: '#6C5CE7',
       color: '#ffffff',
       cursor: 'pointer',
-      transition: 'opacity 0.15s ease',
+      transition: 'transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease',
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: '8px'
+      gap: '8px',
+      boxShadow: '0 4px 16px rgba(108, 92, 231, 0.35)',
+      whiteSpace: 'nowrap'
     });
 
-    // Hover: opacity change
+    // Hover: scale up + enhanced shadow
     this.button.addEventListener('mouseenter', () => {
-      this.button.style.opacity = '0.85';
+      this.button.style.transform = 'scale(1.05)';
+      this.button.style.boxShadow = '0 6px 24px rgba(108, 92, 231, 0.5)';
     });
 
     this.button.addEventListener('mouseleave', () => {
-      this.button.style.opacity = '1';
+      this.button.style.transform = 'scale(1)';
+      this.button.style.boxShadow = '0 4px 16px rgba(108, 92, 231, 0.35)';
     });
   }
 
   /**
-   * Handle button click
+   * Handle FAB click
    * @private
    */
   async _handleButtonClick() {
-    // Get current videoId from URL instead of using captured value
     const currentUrl = new URL(window.location.href);
     const videoId = currentUrl.searchParams.get('v');
 
@@ -253,25 +164,23 @@ class ContentInjector {
       return;
     }
 
-    console.log(`[ContentInjector] Button clicked for video: ${videoId}`);
+    console.log(`[ContentInjector] FAB clicked for video: ${videoId}`);
 
-    // Set loading state
+    // Hide FAB when modal opens
     this._setButtonState('loading');
 
     try {
-      // Trigger orchestrator
       await TranscriptOrchestrator.extractAndDisplay(videoId, 'in-page-button');
-
-      // Update button state to cached
       this._setButtonState('cached');
+      // Hide FAB while modal is open
+      this._hideButton();
     } catch (error) {
       Utils.logError('ContentInjector._handleButtonClick', error, { videoId });
       this._setButtonState('error');
 
-      // Reset to default after 2 seconds
       setTimeout(() => {
         this._setButtonState('default');
-      }, 2000);
+      }, YTE_CONSTANTS.ERROR_RESET_DELAY);
     }
   }
 
@@ -290,10 +199,14 @@ class ContentInjector {
       error: 'Try Again'
     };
 
-    this.button.innerHTML = states[state] || states.default;
-    this.button.disabled = state === 'loading';
+    const label = this.button.querySelector('.yte-fab-label');
+    if (label) {
+      label.textContent = states[state] || states.default;
+    }
 
-    // Update aria-label
+    this.button.disabled = state === 'loading';
+    this.button.style.opacity = state === 'loading' ? '0.7' : '1';
+
     const labels = {
       default: 'Get transcript of video',
       loading: 'Extracting transcript',
@@ -305,32 +218,39 @@ class ContentInjector {
   }
 
   /**
+   * Hide FAB (when modal is open)
+   * @private
+   */
+  _hideButton() {
+    if (this.button) {
+      this.button.style.display = 'none';
+    }
+  }
+
+  /**
+   * Show FAB
+   */
+  showButton() {
+    if (this.button) {
+      this.button.style.display = 'flex';
+    }
+  }
+
+  /**
    * Remove button from DOM
    */
   removeButton() {
     if (this.button && document.body.contains(this.button)) {
       this.button.remove();
       this.button = null;
-      console.log('[ContentInjector] Button removed');
+      console.log('[ContentInjector] FAB removed');
     }
   }
 
   /**
-   * Cleanup and disconnect observer
+   * Cleanup
    */
   destroy() {
-    // Clear URL check interval
-    if (this.urlCheckInterval) {
-      clearInterval(this.urlCheckInterval);
-      this.urlCheckInterval = null;
-    }
-
-    // Disconnect MutationObserver
-    if (this.observer) {
-      this.observer.disconnect();
-      this.observer = null;
-    }
-
     this.removeButton();
     console.log('[ContentInjector] Destroyed');
   }
@@ -342,9 +262,7 @@ if (document.readyState === 'loading') {
     window.ytExtensionInjector = new ContentInjector();
   });
 } else {
-  // DOM already loaded
   window.ytExtensionInjector = new ContentInjector();
 }
 
-// Export for debugging
 window.ContentInjector = ContentInjector;

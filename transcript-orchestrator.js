@@ -16,9 +16,7 @@ class TranscriptOrchestrator {
 
     // Check if Chrome APIs are available
     if (!Utils.isChromeAPIAvailable()) {
-      const errorMsg = '❌ Extension was reloaded. Please refresh this page (F5) to continue.';
-      console.error('[Orchestrator] Extension context invalidated');
-      ModalUI.showError(errorMsg, isDark);
+      ModalUI.showError('Extension was reloaded. Please refresh this page (F5) to continue.', isDark);
       return false;
     }
 
@@ -57,10 +55,11 @@ class TranscriptOrchestrator {
           raw: extractResult.transcript,
           segments: Utils.parseSegments(extractResult.transcript)
         },
-        summary: null
+        summary: null,
+        chatHistory: []
       };
 
-      // Step 6: Check if AI processing is configured
+      // Step 6: Check if AI processing is configured - use streaming
       const aiResult = await this._processWithAI(extractResult.transcript, isDark);
       if (aiResult) {
         data.summary = aiResult;
@@ -88,8 +87,6 @@ class TranscriptOrchestrator {
    */
   static async _extractTranscript() {
     try {
-      // Call getTranscript from content.js
-      // This function is defined in content.js and available globally
       if (typeof getTranscript === 'function') {
         return await getTranscript();
       } else {
@@ -102,7 +99,7 @@ class TranscriptOrchestrator {
   }
 
   /**
-   * Process transcript with AI if configured
+   * Process transcript with AI using streaming if available
    * @private
    * @param {string} transcript - Raw transcript text
    * @param {boolean} isDark - Dark mode flag
@@ -110,34 +107,46 @@ class TranscriptOrchestrator {
    */
   static async _processWithAI(transcript, isDark) {
     try {
-      // Check if Chrome APIs are available
       if (!Utils.isChromeAPIAvailable()) {
-        console.warn('[Orchestrator] Extension context invalidated. Skipping AI processing.');
         return null;
       }
 
-      // Get AI settings from chrome.storage.sync
       const settings = await chrome.storage.sync.get([
-        'apiProvider',
-        'apiKey',
-        'customPrompt',
-        'model'
+        'apiProvider', 'apiKey', 'customPrompt', 'model'
       ]);
 
-      // Check if AI processing is configured
       if (!settings.apiProvider || !settings.apiKey || !settings.customPrompt) {
         console.log('[Orchestrator] AI processing not configured, skipping');
         return null;
       }
 
-      console.log(`[Orchestrator] Processing with ${settings.apiProvider}...`);
+      console.log(`[Orchestrator] Processing with ${settings.apiProvider} (streaming)...`);
 
-      // Update modal to show processing status
-      if (ModalUI.isOpen) {
-        // Could add a processing indicator here in future
+      // Try streaming first
+      const portName = settings.apiProvider === 'openai' ? 'streamOpenAI' : 'streamClaude';
+
+      try {
+        const result = await this._streamFromPort(portName, {
+          apiKey: settings.apiKey,
+          model: settings.model,
+          prompt: settings.customPrompt,
+          transcript: transcript
+        });
+
+        if (result) {
+          console.log('[Orchestrator] Streaming AI processing successful');
+          return {
+            provider: settings.apiProvider,
+            model: settings.model,
+            prompt: settings.customPrompt,
+            result: result
+          };
+        }
+      } catch (streamError) {
+        console.warn('[Orchestrator] Streaming failed, falling back to non-streaming:', streamError.message);
       }
 
-      // Process transcript with AI using api.js
+      // Fallback to non-streaming
       let result;
       if (settings.apiProvider === 'openai') {
         const response = await chrome.runtime.sendMessage({
@@ -147,12 +156,8 @@ class TranscriptOrchestrator {
           prompt: settings.customPrompt,
           transcript: transcript
         });
-
-        if (response.success) {
-          result = response.result;
-        } else {
-          throw new Error(response.error || 'OpenAI processing failed');
-        }
+        if (response.success) result = response.result;
+        else throw new Error(response.error || 'OpenAI processing failed');
       } else if (settings.apiProvider === 'claude') {
         const response = await chrome.runtime.sendMessage({
           action: 'callClaude',
@@ -161,16 +166,11 @@ class TranscriptOrchestrator {
           prompt: settings.customPrompt,
           transcript: transcript
         });
-
-        if (response.success) {
-          result = response.result;
-        } else {
-          throw new Error(response.error || 'Claude processing failed');
-        }
+        if (response.success) result = response.result;
+        else throw new Error(response.error || 'Claude processing failed');
       }
 
       if (result) {
-        console.log('[Orchestrator] AI processing successful');
         return {
           provider: settings.apiProvider,
           model: settings.model,
@@ -182,16 +182,60 @@ class TranscriptOrchestrator {
       return null;
 
     } catch (error) {
-      // Silently handle context invalidated errors
       if (Utils.isContextInvalidatedError(error)) {
-        console.warn('[Orchestrator] Extension context invalidated. Skipping AI processing.');
         return null;
       }
       Utils.logError('Orchestrator._processWithAI', error);
-      console.warn('[Orchestrator] AI processing failed, continuing without summary');
-      // Silent fallback - don't show error to user
       return null;
     }
+  }
+
+  /**
+   * Stream AI response from background port
+   * @private
+   * @param {string} portName - Port name ('streamOpenAI' or 'streamClaude')
+   * @param {Object} request - Request payload
+   * @returns {Promise<string>} - Full response text
+   */
+  static _streamFromPort(portName, request) {
+    return new Promise((resolve, reject) => {
+      const port = chrome.runtime.connect({ name: portName });
+      let fullText = '';
+      let rafPending = false;
+
+      port.onMessage.addListener((msg) => {
+        if (msg.type === 'chunk') {
+          fullText += msg.content;
+
+          // Throttle DOM updates with requestAnimationFrame
+          if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(() => {
+              ModalUI.updateStreamingContent(fullText);
+              rafPending = false;
+            });
+          }
+        } else if (msg.type === 'done') {
+          // Final render with full markdown
+          ModalUI.updateStreamingContent(fullText, true);
+          port.disconnect();
+          resolve(fullText);
+        } else if (msg.type === 'error') {
+          port.disconnect();
+          reject(new Error(msg.error));
+        }
+      });
+
+      port.onDisconnect.addListener(() => {
+        if (fullText) {
+          resolve(fullText);
+        } else {
+          reject(new Error('Port disconnected before receiving any data'));
+        }
+      });
+
+      port.postMessage(request);
+    });
   }
 
   /**
@@ -203,23 +247,20 @@ class TranscriptOrchestrator {
   static async regenerateSummary(videoId, transcript) {
     console.log(`[Orchestrator] Regenerating summary for video: ${videoId}`);
 
-    // Check if Chrome APIs are available
     if (!Utils.isChromeAPIAvailable()) {
-      console.error('[Orchestrator] Extension context invalidated during regeneration');
       return null;
     }
 
     try {
       const isDark = ThemeDetector.isDarkMode();
-
-      // Process with AI using current settings
       const aiResult = await this._processWithAI(transcript, isDark);
 
       if (aiResult) {
-        // Update cache with new summary
+        // Update cache with new summary, clear chat history (stale context)
         const cachedData = await CacheManager.getCachedData(videoId);
         if (cachedData) {
           cachedData.summary = aiResult;
+          cachedData.chatHistory = [];
           cachedData.timestamp = Date.now();
           await CacheManager.setCachedData(videoId, cachedData);
           console.log('[Orchestrator] Cache updated with regenerated summary');
@@ -232,6 +273,80 @@ class TranscriptOrchestrator {
     } catch (error) {
       Utils.logError('Orchestrator.regenerateSummary', error, { videoId });
       return null;
+    }
+  }
+
+  /**
+   * Send a chat message about the video
+   * @param {string} videoId - YouTube video ID
+   * @param {string} userMessage - User's message
+   * @returns {Promise<string|null>} - AI response or null on failure
+   */
+  static async sendChatMessage(videoId, userMessage) {
+    console.log(`[Orchestrator] Sending chat message for video: ${videoId}`);
+
+    if (!Utils.isChromeAPIAvailable()) {
+      return null;
+    }
+
+    try {
+      const settings = await chrome.storage.sync.get([
+        'apiProvider', 'apiKey', 'model'
+      ]);
+
+      if (!settings.apiProvider || !settings.apiKey) {
+        throw new Error('AI not configured');
+      }
+
+      // Get cached data for context
+      const cachedData = await CacheManager.getCachedData(videoId);
+      if (!cachedData) {
+        throw new Error('No cached data for this video');
+      }
+
+      // Build context from summary or transcript
+      const summaryText = cachedData.summary?.result || '';
+      const contextText = summaryText || cachedData.transcript.raw.substring(0, YTE_CONSTANTS.CHAT_CONTEXT_CHAR_LIMIT);
+
+      // Add user message to chat history
+      ChatManager.addMessage(videoId, 'user', userMessage);
+
+      // Build conversation payload
+      const payload = ChatManager.getConversationPayload(videoId, contextText, settings.apiProvider);
+
+      let response;
+      if (settings.apiProvider === 'openai') {
+        response = await chrome.runtime.sendMessage({
+          action: 'chatOpenAI',
+          apiKey: settings.apiKey,
+          model: settings.model,
+          messages: payload.messages
+        });
+      } else if (settings.apiProvider === 'claude') {
+        response = await chrome.runtime.sendMessage({
+          action: 'chatClaude',
+          apiKey: settings.apiKey,
+          model: settings.model,
+          messages: payload.messages,
+          system: payload.system
+        });
+      }
+
+      if (response?.success) {
+        // Add assistant response to history
+        ChatManager.addMessage(videoId, 'assistant', response.result);
+
+        // Update cache with chat history
+        cachedData.chatHistory = ChatManager.getHistory(videoId);
+        await CacheManager.setCachedData(videoId, cachedData);
+
+        return response.result;
+      } else {
+        throw new Error(response?.error || 'Chat request failed');
+      }
+    } catch (error) {
+      Utils.logError('Orchestrator.sendChatMessage', error, { videoId });
+      throw error;
     }
   }
 
@@ -267,7 +382,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'openTranscriptModal') {
     console.log('[Orchestrator] Received openTranscriptModal message:', request);
 
-    // Extract and display
     TranscriptOrchestrator.extractAndDisplay(request.videoId, request.source || 'extension-icon')
       .then(success => {
         sendResponse({ success: success });

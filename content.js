@@ -1,6 +1,39 @@
 // Content script that runs on YouTube pages
 // This script extracts transcript data from the YouTube page
 
+/**
+ * Wait for an element matching selector to appear in the DOM
+ * @param {string} selector - CSS selector
+ * @param {number} timeout - Max wait time in ms
+ * @returns {Promise<Element>} - Resolved when element appears
+ */
+function waitForElement(selector, timeout = YTE_CONSTANTS.MUTATION_TIMEOUT) {
+  return new Promise((resolve, reject) => {
+    // Check if element already exists
+    const existing = document.querySelector(selector);
+    if (existing) {
+      resolve(existing);
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      const el = document.querySelector(selector);
+      if (el) {
+        observer.disconnect();
+        clearTimeout(timer);
+        resolve(el);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    const timer = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error(`Timeout waiting for ${selector}`));
+    }, timeout);
+  });
+}
+
 async function getTranscript() {
   try {
     // Get video ID from URL
@@ -12,30 +45,29 @@ async function getTranscript() {
     }
 
     // First, check if transcript is already open
-    let transcriptSegments = document.querySelectorAll('ytd-transcript-segment-renderer');
+    let transcriptSegments = document.querySelectorAll(YTE_CONSTANTS.SELECTORS.TRANSCRIPT_SEGMENTS);
 
     if (transcriptSegments.length === 0) {
       // Try to open the transcript panel
-      // Look for the "More actions" button or the three-dot menu
-      const moreActionsSelectors = [
-        'button[aria-label="More actions"]',
-        'button[aria-label*="More"]',
-        'ytd-menu-renderer button',
-        '#button-shape > button[aria-label*="More"]'
-      ];
-
       let moreActionsButton = null;
-      for (const selector of moreActionsSelectors) {
+      for (const selector of YTE_CONSTANTS.SELECTORS.MORE_ACTIONS) {
         moreActionsButton = document.querySelector(selector);
         if (moreActionsButton) break;
       }
 
       if (moreActionsButton) {
         moreActionsButton.click();
-        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Wait for menu to appear using MutationObserver
+        try {
+          await waitForElement(YTE_CONSTANTS.SELECTORS.MENU_POPUP);
+        } catch (e) {
+          // Fallback: wait a fixed time if observer fails
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
 
         // Look for transcript button in the menu
-        const menuItems = document.querySelectorAll('ytd-menu-service-item-renderer, tp-yt-paper-listbox ytd-menu-service-item-renderer, ytd-menu-popup-renderer ytd-menu-service-item-renderer');
+        const menuItems = document.querySelectorAll(YTE_CONSTANTS.SELECTORS.MENU_ITEMS);
 
         let transcriptButton = null;
         for (const item of menuItems) {
@@ -48,7 +80,14 @@ async function getTranscript() {
 
         if (transcriptButton) {
           transcriptButton.click();
-          await new Promise(resolve => setTimeout(resolve, 1500));
+
+          // Wait for transcript segments to appear using MutationObserver
+          try {
+            await waitForElement(YTE_CONSTANTS.SELECTORS.TRANSCRIPT_SEGMENTS);
+          } catch (e) {
+            // Fallback: wait a fixed time
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
         } else {
           // Try alternative: look for button directly
           const altTranscriptButton = Array.from(document.querySelectorAll('button, a')).find(
@@ -56,13 +95,17 @@ async function getTranscript() {
           );
           if (altTranscriptButton) {
             altTranscriptButton.click();
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            try {
+              await waitForElement(YTE_CONSTANTS.SELECTORS.TRANSCRIPT_SEGMENTS);
+            } catch (e) {
+              await new Promise(resolve => setTimeout(resolve, 1500));
+            }
           }
         }
       }
 
       // Check again for transcript segments
-      transcriptSegments = document.querySelectorAll('ytd-transcript-segment-renderer');
+      transcriptSegments = document.querySelectorAll(YTE_CONSTANTS.SELECTORS.TRANSCRIPT_SEGMENTS);
     }
 
     if (transcriptSegments.length === 0) {
@@ -72,15 +115,19 @@ async function getTranscript() {
     let transcriptText = '';
 
     transcriptSegments.forEach(segment => {
-      // Try to get the timestamp
-      const timestampElement = segment.querySelector('.segment-timestamp') ||
-                              segment.querySelector('[class*="segment-timestamp"]') ||
-                              segment.querySelector('div[class*="cue-group"] div[class*="cue"]:first-child');
+      // Try multiple selectors for timestamp
+      let timestampElement = null;
+      for (const selector of YTE_CONSTANTS.SELECTORS.SEGMENT_TIMESTAMP) {
+        timestampElement = segment.querySelector(selector);
+        if (timestampElement) break;
+      }
 
-      // Try multiple selectors for the text content
-      const textElement = segment.querySelector('.segment-text') ||
-                         segment.querySelector('yt-formatted-string.segment-text') ||
-                         segment.querySelector('[class*="segment-text"]');
+      // Try multiple selectors for text
+      let textElement = null;
+      for (const selector of YTE_CONSTANTS.SELECTORS.SEGMENT_TEXT) {
+        textElement = segment.querySelector(selector);
+        if (textElement) break;
+      }
 
       if (textElement) {
         const timestamp = timestampElement ? timestampElement.textContent.trim() : '';

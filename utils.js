@@ -246,12 +246,14 @@ class Utils {
    * @returns {string} - Video title or 'Unknown Video'
    */
   static getVideoTitle() {
-    const selectors = [
-      'h1.ytd-watch-metadata yt-formatted-string',
-      'h1.title yt-formatted-string',
-      'ytd-watch-metadata h1',
-      'h1.ytd-video-primary-info-renderer'
-    ];
+    const selectors = typeof YTE_CONSTANTS !== 'undefined'
+      ? YTE_CONSTANTS.SELECTORS.VIDEO_TITLE
+      : [
+        'h1.ytd-watch-metadata yt-formatted-string',
+        'h1.title yt-formatted-string',
+        'ytd-watch-metadata h1',
+        'h1.ytd-video-primary-info-renderer'
+      ];
 
     for (const selector of selectors) {
       const el = document.querySelector(selector);
