@@ -1,6 +1,6 @@
-# YouTube Transcript Extractor
+# Distill
 
-A Chrome extension that extracts transcripts from YouTube videos and optionally processes them using AI (OpenAI or Claude).
+A Chrome extension that distills YouTube videos into transcripts, AI summaries, and conversational chat — powered by OpenAI or Claude.
 
 **Current Version:** 4.0.0
 

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Transcript Extractor",
+  "name": "Distill",
   "version": "4.0.0",
-  "description": "Extract YouTube video transcripts with AI processing, streaming, and conversational chat",
+  "description": "Distill YouTube videos into transcripts, AI summaries, and conversational chat",
   "permissions": [
     "activeTab",
     "scripting",

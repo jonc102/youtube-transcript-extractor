@@ -1,4 +1,4 @@
-// Content Injector for YouTube Transcript Extractor
+// Content Injector for Distill
 // Injects floating FAB (Floating Action Button) on YouTube video pages
 
 class ContentInjector {
@@ -93,11 +93,11 @@ class ContentInjector {
     this.button = document.createElement('button');
     this.button.id = 'yte-transcript-button';
     this.button.className = 'yte-fab';
-    this.button.setAttribute('aria-label', isCached ? 'View cached transcript' : 'Get transcript of video');
+    this.button.setAttribute('aria-label', isCached ? 'View cached transcript' : 'Distill video transcript');
 
     // Build inner HTML with extension icon + text
     const iconUrl = typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime.getURL('icon16.png') : '';
-    const labelText = isCached ? 'View Transcript' : 'Get Transcript';
+    const labelText = isCached ? 'View' : 'Distill';
     this.button.innerHTML = `${iconUrl ? `<img src="${iconUrl}" alt="" width="16" height="16" class="yte-fab-icon">` : ''}<span class="yte-fab-label">${labelText}</span>`;
 
     // Apply inline styles for FAB
@@ -193,9 +193,9 @@ class ContentInjector {
     if (!this.button) return;
 
     const states = {
-      default: 'Get Transcript',
+      default: 'Distill',
       loading: 'Loading...',
-      cached: 'View Transcript',
+      cached: 'View',
       error: 'Try Again'
     };
 
@@ -208,7 +208,7 @@ class ContentInjector {
     this.button.style.opacity = state === 'loading' ? '0.7' : '1';
 
     const labels = {
-      default: 'Get transcript of video',
+      default: 'Distill video transcript',
       loading: 'Extracting transcript',
       cached: 'View cached transcript',
       error: 'Extraction failed, try again'

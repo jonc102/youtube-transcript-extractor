@@ -1,4 +1,4 @@
-// Cache Manager for YouTube Transcript Extractor
+// Cache Manager for Distill
 // Implements LRU (Least Recently Used) caching with 10 video limit
 
 class CacheManager {

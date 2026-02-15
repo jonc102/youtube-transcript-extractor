@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YouTube Transcript Extractor is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
+Distill is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
 **Current Version:** 4.0.0
 **Branch Strategy:** `main` is the stable branch (contains v4.0.0). All PRs should target `main`. Create feature branches from `main`.
@@ -350,7 +350,7 @@ Creates and manages a floating modal in the bottom-right corner:
 ```html
 <div class="yte-modal yte-dark">  <!-- Appended directly to document.body -->
   <div class="yte-modal-header">
-    <h2>Transcript & Summary</h2>
+    <h2>Distill</h2>
     <div class="yte-modal-header-actions">
       <button class="yte-modal-settings"><svg><!-- gear icon --></svg></button>
       <button class="yte-modal-minimize">&minus;</button>  <!-- v4.0 -->
@@ -465,8 +465,8 @@ Injects a distinctive floating purple pill FAB (Floating Action Button) on YouTu
 - Hides when modal is open, reappears when modal closes
 - `yt-navigate-finish` event listener for SPA navigation (no interval polling)
 - Button text changes based on cache state:
-  - "Get Transcript" - First time (not cached)
-  - "View Transcript" - Cached (instant load)
+  - "Distill" - First time (not cached)
+  - "View" - Cached (instant load)
   - "Loading..." - During extraction
   - "Try Again" - After error
 
@@ -574,7 +574,7 @@ v4.0 uses `MutationObserver` via `waitForElement(selector, timeout)` to detect D
   - SVG gear icon replacing emoji settings button in modal
   - Settings: uppercase letterspaced section headers, filled inputs (no border), text Show/Hide toggle
   - Settings: refresh button uses "Refresh" text instead of emoji
-  - In-page button: clean labels ("Get Transcript", "View Transcript", "Loading...", "Try Again")
+  - In-page button: clean labels ("Distill", "View", "Loading...", "Try Again")
   - Thinner scrollbars (6px) with subtle colors
   - Subtle error state (background tint only, no left border bar, no emoji)
   - All `::before` content emoji pseudo-elements removed from status/toast/error/info messages
@@ -674,7 +674,7 @@ Manual testing required (no automated tests):
 ### Entry Points (v4.0)
 - [ ] Purple floating FAB pill appears in bottom-right (desktop only)
 - [ ] FAB has extension icon + text label
-- [ ] FAB text: "Get Transcript" (first time), "View Transcript" (cached)
+- [ ] FAB text: "Distill" (first time), "View" (cached)
 - [ ] FAB hover: scale up + enhanced shadow
 - [ ] FAB hides when modal opens, reappears when modal closes
 - [ ] Extension icon popup opens on YouTube video pages

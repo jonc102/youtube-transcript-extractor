@@ -1,4 +1,4 @@
-// Theme detection for YouTube Transcript Extractor
+// Theme detection for Distill
 // Detects YouTube's light/dark mode for modal styling
 
 class ThemeDetector {

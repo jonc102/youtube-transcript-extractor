@@ -1,4 +1,4 @@
-// Transcript Orchestrator for YouTube Transcript Extractor
+// Transcript Orchestrator for Distill
 // Coordinates unified extraction flow for both entry points (button + extension icon)
 
 class TranscriptOrchestrator {

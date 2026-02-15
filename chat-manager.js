@@ -1,4 +1,4 @@
-// Chat Manager for YouTube Transcript Extractor
+// Chat Manager for Distill
 // Manages conversation state per video for AI chat feature
 
 class ChatManager {

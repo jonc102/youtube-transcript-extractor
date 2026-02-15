@@ -1,4 +1,4 @@
-// Shared constants for YouTube Transcript Extractor
+// Shared constants for Distill
 // Loaded first in manifest before all other content scripts
 
 const YTE_CONSTANTS = {

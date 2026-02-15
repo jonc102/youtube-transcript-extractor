@@ -1,4 +1,4 @@
-// Utility functions for YouTube Transcript Extractor
+// Utility functions for Distill
 // Shared across all content scripts
 
 class Utils {
