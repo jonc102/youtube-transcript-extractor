@@ -147,30 +147,30 @@ class TranscriptOrchestrator {
       }
 
       // Fallback to non-streaming
+      console.log(`[Orchestrator] Falling back to non-streaming ${settings.apiProvider}...`);
       let result;
-      if (settings.apiProvider === 'openai') {
-        const response = await chrome.runtime.sendMessage({
-          action: 'callOpenAI',
-          apiKey: settings.apiKey,
-          model: settings.model,
-          prompt: settings.customPrompt,
-          transcript: transcript
-        });
-        if (response.success) result = response.result;
-        else throw new Error(response.error || 'OpenAI processing failed');
-      } else if (settings.apiProvider === 'claude') {
-        const response = await chrome.runtime.sendMessage({
-          action: 'callClaude',
-          apiKey: settings.apiKey,
-          model: settings.model,
-          prompt: settings.customPrompt,
-          transcript: transcript
-        });
-        if (response.success) result = response.result;
-        else throw new Error(response.error || 'Claude processing failed');
+      const action = settings.apiProvider === 'openai' ? 'callOpenAI' : 'callClaude';
+      const response = await chrome.runtime.sendMessage({
+        action: action,
+        apiKey: settings.apiKey,
+        model: settings.model,
+        prompt: settings.customPrompt,
+        transcript: transcript
+      });
+
+      if (!response) {
+        console.error('[Orchestrator] No response from background worker');
+        return null;
+      }
+
+      if (response.success) {
+        result = response.result;
+      } else {
+        throw new Error(response.error || `${settings.apiProvider} processing failed`);
       }
 
       if (result) {
+        console.log('[Orchestrator] Non-streaming AI processing successful');
         return {
           provider: settings.apiProvider,
           model: settings.model,
@@ -179,6 +179,7 @@ class TranscriptOrchestrator {
         };
       }
 
+      console.warn('[Orchestrator] API returned empty result');
       return null;
 
     } catch (error) {

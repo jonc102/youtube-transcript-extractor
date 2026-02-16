@@ -2,9 +2,13 @@
 
 A Chrome extension that distills YouTube videos into transcripts, AI summaries, and conversational chat — powered by OpenAI or Claude.
 
-**Current Version:** 4.0.0
+**Current Version:** 4.0.1
 
-## What's New in v4.0.0
+## What's New in v4.0.1
+
+- **GPT-5-nano Fix** - Fixed summaries not displaying. Root cause: GPT-5-nano is a reasoning model that consumed all tokens on reasoning with none left for output. Token limit increased from 2,000 → 16,384 for reasoning headroom. Added proper error handling for empty API responses.
+
+## v4.0.0
 
 - **Conversational AI Chat** - Chat with AI about video content after summary is generated. iMessage-style bubbles, typing indicator, chat history persisted in cache.
 - **Streaming AI Responses** - Real-time text streaming for summaries via Port-based messaging with SSE parsing. Progressive text display with blinking cursor.
@@ -12,7 +16,7 @@ A Chrome extension that distills YouTube videos into transcripts, AI summaries, 
 - **Minimize Modal** - Collapse modal to a frosted glass pill in the bottom-right corner. Expand restores full state (tab, scroll, chat).
 - **Floating FAB Entry Point** - Distinctive purple floating pill button with extension icon, replacing sidebar integration.
 - **Claude Opus 4.6** - Added as the latest Claude model option.
-- **GPT-5-nano Improvements** - Model-specific token limits, retry with exponential backoff for transient errors.
+- **GPT-5-nano Improvements** - Model-specific token limits (16,384 for reasoning headroom), retry with exponential backoff for transient errors.
 - **Code Refactoring** - Centralized constants, deleted dead code, shared API helpers.
 
 ## Previous Releases

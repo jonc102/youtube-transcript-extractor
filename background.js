@@ -281,8 +281,8 @@ function _buildOpenAIRequestBody(model, messages, options = {}) {
 
   const usesMaxCompletionTokens = !isLegacyModel;
 
-  // Model-specific token limits
-  const maxTokens = modelLower === 'gpt-5-nano' ? 2000 : 4000;
+  // Model-specific token limits (reasoning models need headroom for reasoning + output)
+  const maxTokens = modelLower === 'gpt-5-nano' ? 16384 : 4000;
 
   const requestBody = {
     model: model,
@@ -362,7 +362,14 @@ async function callOpenAI(apiKey, model, prompt, transcript) {
     throw new Error('Invalid response format from OpenAI API');
   }
 
-  return data.choices[0].message.content;
+  const content = data.choices[0].message.content;
+  if (!content) {
+    const finishReason = data.choices[0].finish_reason || 'unknown';
+    console.warn(`[OpenAI API] Empty content from model ${model}, finish_reason: ${finishReason}`);
+    throw new Error(`Model returned empty response (finish_reason: ${finishReason}). Try a different model or increase token limit.`);
+  }
+
+  return content;
 }
 
 async function callClaude(apiKey, model, prompt, transcript) {
@@ -425,7 +432,13 @@ async function chatOpenAI(apiKey, model, messages) {
     throw new Error('Invalid response format from OpenAI API');
   }
 
-  return data.choices[0].message.content;
+  const content = data.choices[0].message.content;
+  if (!content) {
+    const finishReason = data.choices[0].finish_reason || 'unknown';
+    throw new Error(`Model returned empty response (finish_reason: ${finishReason}). Try a different model or increase token limit.`);
+  }
+
+  return content;
 }
 
 async function chatClaude(apiKey, model, messages, system) {
@@ -508,7 +521,8 @@ chrome.runtime.onConnect.addListener((port) => {
 
             try {
               const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
+              const delta = parsed.choices?.[0]?.delta;
+              const content = delta?.content || delta?.reasoning_content;
               if (content) {
                 port.postMessage({ type: 'chunk', content });
               }

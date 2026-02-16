@@ -928,6 +928,11 @@ class ModalUI {
    * @param {boolean} isDark - Dark mode flag
    */
   static showLoading(isDark) {
+    // Close existing modal if open to prevent duplicates
+    if (this.isOpen) {
+      this.close();
+    }
+
     // Create modal with loading spinner
     const modal = document.createElement('div');
     modal.id = this.MODAL_ID;
