@@ -1,110 +1,194 @@
 #!/usr/bin/env python3
+"""Generate extension icons: white document+play symbol on #6C5CE7 purple rounded square."""
 import struct
 import zlib
+import math
 
-def create_simple_png(width, height, rgb_data):
-    """Create a simple PNG file from RGB data"""
+
+def create_png_rgba(width, height, rgba_data):
+    """Create a PNG file from RGBA pixel data."""
     def png_chunk(chunk_type, data):
         chunk = chunk_type + data
-        crc = zlib.crc32(chunk) & 0xffffffff
+        crc = zlib.crc32(chunk) & 0xFFFFFFFF
         return struct.pack(">I", len(data)) + chunk + struct.pack(">I", crc)
-    
-    # PNG signature
+
     png = b'\x89PNG\r\n\x1a\n'
-    
-    # IHDR chunk
-    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 2 = RGB color type
+    # color_type 6 = RGBA
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
     png += png_chunk(b'IHDR', ihdr)
-    
-    # IDAT chunk (image data)
-    raw_data = b''
+
+    raw = b''
     for y in range(height):
-        raw_data += b'\x00'  # Filter type
+        raw += b'\x00'  # filter: none
         for x in range(width):
-            idx = (y * width + x) * 3
-            raw_data += bytes(rgb_data[idx:idx+3])
-    
-    compressed = zlib.compress(raw_data, 9)
-    png += png_chunk(b'IDAT', compressed)
-    
-    # IEND chunk
+            idx = (y * width + x) * 4
+            raw += bytes(rgba_data[idx:idx + 4])
+
+    png += png_chunk(b'IDAT', zlib.compress(raw, 9))
     png += png_chunk(b'IEND', b'')
-    
     return png
 
-def create_icon(size):
-    """Create a YouTube transcript icon"""
-    # Red background color
-    red = [255, 0, 0]
-    white = [255, 255, 255]
-    
-    rgb_data = []
-    
-    # Calculate dimensions
-    corner_radius = size // 6
-    play_size = size // 3
-    play_x = size // 6
-    play_y = size // 3
-    
-    for y in range(size):
-        for x in range(size):
-            # Default to red background
-            color = red.copy()
-            
-            # Draw rounded corners (simple approximation - make corners transparent/red)
-            in_corner = False
-            # Top-left
-            if x < corner_radius and y < corner_radius:
-                dx, dy = corner_radius - x, corner_radius - y
-                if dx*dx + dy*dy > corner_radius*corner_radius:
-                    in_corner = True
-            # Top-right
-            elif x >= size - corner_radius and y < corner_radius:
-                dx, dy = x - (size - corner_radius - 1), corner_radius - y
-                if dx*dx + dy*dy > corner_radius*corner_radius:
-                    in_corner = True
-            # Bottom-left
-            elif x < corner_radius and y >= size - corner_radius:
-                dx, dy = corner_radius - x, y - (size - corner_radius - 1)
-                if dx*dx + dy*dy > corner_radius*corner_radius:
-                    in_corner = True
-            # Bottom-right
-            elif x >= size - corner_radius and y >= size - corner_radius:
-                dx, dy = x - (size - corner_radius - 1), y - (size - corner_radius - 1)
-                if dx*dx + dy*dy > corner_radius*corner_radius:
-                    in_corner = True
-            
-            if not in_corner:
-                # Draw play button (triangle)
-                px1, py1 = play_x, play_y
-                px2, py2 = play_x + play_size, play_y + play_size // 2
-                px3, py3 = play_x, play_y + play_size
-                
-                if px1 <= x <= px2 and py1 <= y <= py3:
-                    # Simple triangle check
-                    if x - px1 <= (y - py1) * 2 and x - px1 <= (py3 - y) * 2:
-                        color = white.copy()
-                
-                # Draw horizontal lines (transcript lines)
-                line_x = size // 2 + size // 12
-                line_width = size // 3
-                line_height = max(1, size // 32)
-                spacing = size // 6
-                
-                for i in range(3):
-                    line_y = play_y + i * spacing
-                    if line_x <= x < line_x + line_width and line_y <= y < line_y + line_height:
-                        color = white.copy()
-            
-            rgb_data.extend(color)
-    
-    return create_simple_png(size, size, rgb_data)
 
-# Create icons
+def dist(ax, ay, bx, by):
+    """Euclidean distance between two points."""
+    return math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+
+
+def point_in_triangle(px, py, x1, y1, x2, y2, x3, y3):
+    """Return True if point (px, py) is inside triangle defined by three vertices."""
+    def sign(ax, ay, bx, by, cx, cy):
+        return (ax - cx) * (by - cy) - (bx - cx) * (ay - cy)
+
+    d1 = sign(px, py, x1, y1, x2, y2)
+    d2 = sign(px, py, x2, y2, x3, y3)
+    d3 = sign(px, py, x3, y3, x1, y1)
+
+    has_neg = (d1 < 0) or (d2 < 0) or (d3 < 0)
+    has_pos = (d1 > 0) or (d2 > 0) or (d3 > 0)
+    return not (has_neg and has_pos)
+
+
+def in_rounded_rect(x, y, rx, ry, rw, rh, radius):
+    """Return True if (x, y) is inside a rounded rectangle."""
+    # Interior bands (no radius needed)
+    if rx + radius <= x <= rx + rw - radius and ry <= y <= ry + rh:
+        return True
+    if rx <= x <= rx + rw and ry + radius <= y <= ry + rh - radius:
+        return True
+    # Corner arcs
+    corners = [
+        (rx + radius, ry + radius),
+        (rx + rw - radius, ry + radius),
+        (rx + radius, ry + rh - radius),
+        (rx + rw - radius, ry + rh - radius),
+    ]
+    for cx, cy in corners:
+        if dist(x, y, cx, cy) <= radius:
+            return True
+    return False
+
+
+def create_icon(size):
+    """Create a logo icon at the given pixel size.
+
+    Design: purple (#6C5CE7) rounded square with a white document shape
+    containing transcript lines and a small play triangle cutout.
+    """
+    # Colors
+    purple = (108, 92, 231)   # #6C5CE7
+    white = (255, 255, 255)
+
+    s = size  # shorthand
+    rgba = []
+
+    # Background rounded square
+    bg_radius = s * 0.22  # ~20% corner radius (iOS style)
+
+    # Document dimensions — centered, with comfortable padding
+    doc_pad_x = s * 0.22
+    doc_pad_top = s * 0.16
+    doc_pad_bot = s * 0.18
+    doc_left = doc_pad_x
+    doc_right = s - doc_pad_x
+    doc_top = doc_pad_top
+    doc_bottom = s - doc_pad_bot
+    doc_w = doc_right - doc_left
+    doc_h = doc_bottom - doc_top
+    doc_radius = s * 0.08  # slight rounding on the document
+
+    # Dog-ear (folded corner) on top-right of document
+    ear_size = doc_w * 0.25
+
+    # Transcript lines — 3 lines inside the document
+    line_margin_l = doc_left + doc_w * 0.14
+    line_margin_r = doc_right - doc_w * 0.14
+    line_thickness = max(1, round(s * 0.055))
+    # Vertical positioning: distribute 3 lines in the middle-to-lower area of the doc
+    lines_region_top = doc_top + doc_h * 0.38
+    lines_region_bot = doc_bottom - doc_h * 0.15
+    line_spacing = (lines_region_bot - lines_region_top) / 2
+    line_lengths = [0.95, 0.70, 0.50]  # relative to available width
+
+    # Play triangle — small, bottom-left area of document interior
+    play_cx = doc_left + doc_w * 0.30
+    play_cy = doc_top + doc_h * 0.22
+    play_r = doc_w * 0.16  # "radius" of the play triangle
+
+    for y in range(s):
+        for x in range(s):
+            # 1. Background: rounded square or transparent
+            if not in_rounded_rect(x, y, 0, 0, s - 1, s - 1, bg_radius):
+                rgba.extend([0, 0, 0, 0])  # transparent
+                continue
+
+            # Start with purple background
+            r, g, b, a = purple[0], purple[1], purple[2], 255
+
+            # 2. Document shape — rounded rect with dog-ear
+            in_doc = in_rounded_rect(
+                x, y, doc_left, doc_top, doc_w, doc_h, doc_radius
+            )
+
+            # Cut out the dog-ear triangle (top-right corner of document)
+            in_ear = False
+            if in_doc:
+                ear_x = doc_right - ear_size
+                ear_y = doc_top + ear_size
+                if x >= ear_x and y <= doc_top + (ear_y - doc_top) * ((doc_right - x) / max(ear_size, 1)):
+                    # Above the diagonal — this is the cut corner
+                    if y < ear_y and x > ear_x:
+                        in_ear = True
+
+            if in_doc and not in_ear:
+                r, g, b = white
+
+                # 3. Play triangle — cut out from white (show purple through)
+                # Rightward-pointing equilateral-ish triangle
+                tri_x1 = play_cx - play_r * 0.5  # left vertex
+                tri_y1 = play_cy - play_r * 0.85
+                tri_x2 = play_cx - play_r * 0.5  # bottom-left vertex
+                tri_y2 = play_cy + play_r * 0.85
+                tri_x3 = play_cx + play_r * 0.9   # right point
+                tri_y3 = play_cy
+
+                if point_in_triangle(x, y, tri_x1, tri_y1, tri_x2, tri_y2, tri_x3, tri_y3):
+                    r, g, b = purple  # punch through to purple
+
+                # 4. Transcript lines — draw purple on white
+                avail_w = line_margin_r - line_margin_l
+                for i, length_frac in enumerate(line_lengths):
+                    ly = lines_region_top + i * line_spacing
+                    lw = avail_w * length_frac
+                    if (line_margin_l <= x <= line_margin_l + lw and
+                            ly <= y <= ly + line_thickness):
+                        r, g, b = purple
+
+            # Dog-ear fold triangle (small darker triangle to suggest fold)
+            if in_ear:
+                ear_fold_x = doc_right - ear_size
+                ear_fold_y = doc_top
+                # Draw a small triangle for the fold flap
+                fold_x1 = ear_fold_x
+                fold_y1 = doc_top
+                fold_x2 = doc_right
+                fold_y2 = doc_top
+                fold_x3 = doc_right
+                fold_y3 = doc_top + ear_size
+                if point_in_triangle(x, y, fold_x1, fold_y1, fold_x2, fold_y2, fold_x3, fold_y3):
+                    # Lighter purple fold
+                    r, g, b = (200, 195, 240)  # light lavender fold
+                    a = 180
+
+            rgba.extend([r, g, b, a])
+
+    return create_png_rgba(s, s, rgba)
+
+
+# Generate icons at all required sizes
 for size in [16, 48, 128]:
     png_data = create_icon(size)
     with open(f'icon{size}.png', 'wb') as f:
         f.write(png_data)
-    print(f'Created icon{size}.png')
+    print(f'Created icon{size}.png ({size}x{size})')
 
 print('All icons created successfully!')
