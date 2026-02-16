@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Distill is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 4.0.0
-**Branch Strategy:** `main` is the stable branch (contains v4.0.0). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 4.0.1
+**Branch Strategy:** `main` is the stable branch (contains v4.0.1). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -189,7 +189,7 @@ Acts as a CORS bypass proxy for API calls. Implements:
 - `chatClaude(apiKey, model, messages, system)` - Multi-turn chat via Claude with top-level system param (v4.0)
 - `fetchWithRetry(url, options, maxRetries, retryDelays)` - Retry wrapper for transient errors (429, 500, 502, 503)
 - `_buildOpenAIHeaders(apiKey)` / `_buildClaudeHeaders(apiKey)` - Shared header builders
-- `_buildOpenAIRequestBody(model, messages, options)` - Model-specific request body builder (GPT-5-nano: 2000 tokens, others: 4000)
+- `_buildOpenAIRequestBody(model, messages, options)` - Model-specific request body builder (GPT-5-nano: 16384 tokens for reasoning headroom, others: 4000)
 - Port handlers: `streamOpenAI` / `streamClaude` - SSE streaming via `chrome.runtime.connect()` ports
 
 All functions use `fetch()` with proper authentication headers. Streaming uses `response.body.getReader()` for SSE parsing.
@@ -518,7 +518,17 @@ v4.0 uses `MutationObserver` via `waitForElement(selector, timeout)` to detect D
 
 ## Version History
 
-**v4.0.0** (2026-02-15) - Current
+**v4.0.1** (2026-02-16) - Current
+- **GPT-5-nano Fix**: Fixed summaries not displaying when using GPT-5-nano model
+  - Root cause: GPT-5-nano is a reasoning model that consumed all 2000 `max_completion_tokens` on reasoning tokens, leaving `content: null` in the API response (`finish_reason: length`)
+  - Increased GPT-5-nano token limit from 2000 → 16384 to provide headroom for reasoning + output
+  - Added null/empty content validation in `callOpenAI` and `chatOpenAI` — now throws descriptive error instead of silently returning null
+  - Streaming handler now checks `delta.reasoning_content` as fallback for reasoning model responses
+  - `_processWithAI` now handles undefined `chrome.runtime.sendMessage` responses and logs fallback path
+  - `ModalUI.showLoading()` now closes existing modal first to prevent duplicate modal elements
+- **Constants:** `NANO_MAX_TOKENS` updated from 2000 → 16384
+
+**v4.0.0** (2026-02-15)
 - **Conversational AI Chat**: Chat with AI about video content after summary is generated
   - iMessage-style chat bubbles (user right/accent, assistant left/surface) in Summary tab
   - Uses summary as system context to manage token budget
@@ -537,7 +547,7 @@ v4.0 uses `MutationObserver` via `waitForElement(selector, timeout)` to detect D
   - 1-2 second savings per uncached extraction
   - 3000ms timeout safety net with fixed-delay fallback
 - **GPT-5-nano Defensive Improvements**:
-  - Model-specific token limits (GPT-5-nano: 2000, others: 4000)
+  - Model-specific token limits (GPT-5-nano: 16384 for reasoning headroom, others: 4000)
   - `fetchWithRetry()` with exponential backoff for transient errors (429, 500, 502, 503)
   - Max 2 retries, delays: 1s, 2s — applies to all models
   - Enhanced error logging with model and status details
@@ -771,7 +781,7 @@ Manual testing required (no automated tests):
 5. **Cache size limit:** Only 10 most recent videos cached (LRU eviction)
 6. **Cache not synced:** Cache uses `chrome.storage.local` and doesn't sync across devices
 7. **Claude Model List Hardcoded:** No public API endpoint, must update manually when new models release
-8. **Token Limits:** OpenAI max_tokens=4000 (GPT-5-nano: 2000), Claude max_tokens=4096
+8. **Token Limits:** OpenAI max_tokens=4000 (GPT-5-nano: 16384 for reasoning headroom), Claude max_tokens=4096
 9. **Modal z-index conflicts:** Modal uses z-index 999999, FAB uses 999998
 10. **Chat context limited:** Chat uses summary (not full transcript) as context to manage tokens. Max 20 messages per video.
 11. **Streaming partial markdown:** During streaming, raw text is shown (not rendered markdown). Full markdown rendered on completion.
@@ -831,5 +841,5 @@ Manual testing required (no automated tests):
 
 ---
 
-**Last Updated:** 2026-02-15
-**Current Version:** 4.0.0
+**Last Updated:** 2026-02-16
+**Current Version:** 4.0.1
