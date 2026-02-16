@@ -231,8 +231,18 @@ label {
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, background-color 0.2s ease;
   font-family: inherit;
+}
+
+.btn.btn-success-feedback {
+  background-color: var(--settings-success);
+  color: #fff;
+}
+
+.btn.btn-error-feedback {
+  background-color: var(--settings-error);
+  color: #fff;
 }
 
 .btn:focus-visible {
@@ -290,17 +300,17 @@ label {
 }
 
 .status.success {
-  background-color: var(--settings-fill);
+  background-color: rgba(52, 199, 89, 0.1);
   color: var(--settings-success);
 }
 
 .status.error {
-  background-color: var(--settings-fill);
+  background-color: rgba(255, 59, 48, 0.1);
   color: var(--settings-error);
 }
 
 .status.info {
-  background-color: var(--settings-fill);
+  background-color: rgba(0, 122, 255, 0.1);
   color: var(--settings-accent);
 }
 

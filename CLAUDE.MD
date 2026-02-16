@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Distill is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 4.0.1
-**Branch Strategy:** `main` is the stable branch (contains v4.0.1). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 4.0.3
+**Branch Strategy:** `main` is the stable branch (contains v4.0.3). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -332,7 +332,7 @@ Creates and manages a floating modal in the bottom-right corner:
 - `ModalUI.showLoading(isDark)` - Shows loading spinner while extracting
 - `ModalUI.showError(message, isDark)` - Shows error state
 - `ModalUI.close()` - Removes modal from DOM, shows FAB
-- `ModalUI.minimize()` - Collapses to pill, preserves state
+- `ModalUI.minimize()` - Collapses to compact "Distill" branded pill, preserves state
 - `ModalUI.expand()` - Restores from minimized state
 - `ModalUI.updateStreamingContent(partialText, isFinal)` - Progressive streaming display
 - `ModalUI._switchTab(tabName)` - Switches between Transcript/Summary tabs
@@ -460,7 +460,7 @@ Injects a distinctive floating purple pill FAB (Floating Action Button) on YouTu
 - Desktop only (checks viewport width > 768px)
 - Fixed position: `bottom: 90px; right: 24px;` (above modal area)
 - Purple background (`#6C5CE7`), white text, pill shape (`border-radius: 100px`), shadow
-- Includes extension icon (`icon16.png`) before text label
+- Inline SVG icon (white document with play triangle) before text label — avoids CSP issues with `chrome-extension://` image URLs
 - Hover: `scale(1.05)` + enhanced shadow
 - Hides when modal is open, reappears when modal closes
 - `yt-navigate-finish` event listener for SPA navigation (no interval polling)
@@ -518,7 +518,19 @@ v4.0 uses `MutationObserver` via `waitForElement(selector, timeout)` to detect D
 
 ## Version History
 
-**v4.0.1** (2026-02-16) - Current
+**v4.0.3** (2026-02-16) - Current
+- **FAB Inline SVG Icon**: Replaced `<img>` tag loading `icon16.png` with inline SVG to fix icon not rendering on YouTube
+  - Root cause: YouTube's Content Security Policy blocks CSS filters on images loaded from `chrome-extension://` URLs in content scripts, making the icon invisible
+  - Inline SVG bypasses CSP entirely — renders a white document icon with purple play triangle and transcript lines matching the extension's icon design
+  - Removed the v4.0.2 CSS filter workaround (`brightness(0) invert(1)`) that was ineffective
+
+**v4.0.2** (2026-02-16)
+- **FAB Icon Fix (Superseded by v4.0.3)**: Applied `brightness(0) invert(1)` CSS filter to make the extension icon white on the purple FAB background (previously invisible purple-on-purple)
+- **Compact Minimized Pill**: Replaced bulky minimized modal (truncated title + expand/close buttons) with compact "Distill" branded pill — entire title is clickable to expand, small close (x) button, keyboard accessible
+- **Save Button Feedback**: Settings "Save Settings" button now shows "Saved" (green) or "Error" (red) text with color change for 2s after click
+- **Status Message Visibility**: Fixed invisible status backgrounds on settings page — now uses semi-transparent tinted colors instead of blending into page background
+
+**v4.0.1** (2026-02-16)
 - **GPT-5-nano Fix**: Fixed summaries not displaying when using GPT-5-nano model
   - Root cause: GPT-5-nano is a reasoning model that consumed all 2000 `max_completion_tokens` on reasoning tokens, leaving `content: null` in the API response (`finish_reason: length`)
   - Increased GPT-5-nano token limit from 2000 → 16384 to provide headroom for reasoning + output
@@ -683,7 +695,7 @@ Manual testing required (no automated tests):
 
 ### Entry Points (v4.0)
 - [ ] Purple floating FAB pill appears in bottom-right (desktop only)
-- [ ] FAB has extension icon + text label
+- [ ] FAB has inline SVG icon + text label
 - [ ] FAB text: "Distill" (first time), "View" (cached)
 - [ ] FAB hover: scale up + enhanced shadow
 - [ ] FAB hides when modal opens, reappears when modal closes
@@ -740,8 +752,8 @@ Manual testing required (no automated tests):
 ### Minimize (v4.0)
 - [ ] Minimize button (&minus;) appears in modal header
 - [ ] Clicking minimize collapses to frosted glass pill
-- [ ] Pill shows truncated video title
-- [ ] Expand button restores full modal
+- [ ] Pill shows "Distill" brand label
+- [ ] Clicking pill title expands full modal
 - [ ] Active tab preserved after expand
 - [ ] Scroll position preserved after expand
 - [ ] Chat history preserved after expand
@@ -842,4 +854,4 @@ Manual testing required (no automated tests):
 ---
 
 **Last Updated:** 2026-02-16
-**Current Version:** 4.0.1
+**Current Version:** 4.0.3

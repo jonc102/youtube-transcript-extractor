@@ -726,8 +726,8 @@
 /* === MINIMIZED STATE === */
 .yte-modal.yte-minimized {
   width: auto;
-  min-width: 200px;
-  max-width: 300px;
+  min-width: auto;
+  max-width: 200px;
   max-height: none;
   min-height: auto;
   animation: yte-minimize 0.2s ease-out;
@@ -736,47 +736,36 @@
 .yte-minimized-content {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 8px 10px 8px 16px;
 }
 
 .yte-minimized-title {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--yte-text);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
+  cursor: pointer;
 }
 
-.yte-minimized-actions {
-  display: flex;
-  gap: 2px;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.yte-minimized-expand,
 .yte-minimized-close {
   background: none;
   border: none;
   color: var(--yte-text-secondary);
   cursor: pointer;
   padding: 4px;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
   transition: background 0.15s ease;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
-.yte-minimized-expand:hover,
 .yte-minimized-close:hover {
   background: var(--yte-hover);
   color: var(--yte-text);
