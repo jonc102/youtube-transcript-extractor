@@ -822,26 +822,30 @@ class ModalUI {
       scrollTop: content ? content.scrollTop : 0
     };
 
-    // Build minimized pill content
-    const title = this.currentData?.videoTitle || 'Transcript';
-    const truncatedTitle = title.length > 25 ? title.substring(0, 25) + '...' : title;
-
+    // Build compact minimized pill
     modal.classList.add('yte-minimized');
     modal.innerHTML = `
       <div class="yte-minimized-content">
-        <span class="yte-minimized-title">${Utils.escapeHtml(truncatedTitle)}</span>
-        <div class="yte-minimized-actions">
-          <button class="yte-minimized-expand" aria-label="Expand modal">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-          </button>
-          <button class="yte-minimized-close" aria-label="Close">&times;</button>
-        </div>
+        <span class="yte-minimized-title" role="button" tabindex="0" aria-label="Expand Distill modal">Distill</span>
+        <button class="yte-minimized-close" aria-label="Close">&times;</button>
       </div>
     `;
 
-    // Attach minimized event listeners
-    modal.querySelector('.yte-minimized-expand').addEventListener('click', () => this.expand());
-    modal.querySelector('.yte-minimized-close').addEventListener('click', () => this.close());
+    // Click title to expand
+    const titleEl = modal.querySelector('.yte-minimized-title');
+    titleEl.addEventListener('click', () => this.expand());
+    titleEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this.expand();
+      }
+    });
+
+    // Close button (stop propagation to prevent expand)
+    modal.querySelector('.yte-minimized-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.close();
+    });
 
     this.isMinimized = true;
     console.log('[ModalUI] Modal minimized');

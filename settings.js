@@ -259,11 +259,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     if (provider && !apiKey) {
       showStatus('Please enter an API key', 'error');
+      showButtonFeedback(saveBtn, 'error');
       return;
     }
 
     if (provider && !customPrompt) {
       showStatus('Please enter a custom prompt', 'error');
+      showButtonFeedback(saveBtn, 'error');
       return;
     }
 
@@ -277,6 +279,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
       await chrome.storage.sync.set(settings);
       showStatus('Settings saved successfully!', 'success');
+      showButtonFeedback(saveBtn, 'success');
 
       setTimeout(() => {
         statusDiv.textContent = '';
@@ -285,6 +288,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (error) {
       console.error('Error saving settings:', error);
       showStatus('Failed to save settings: ' + error.message, 'error');
+      showButtonFeedback(saveBtn, 'error');
     }
   });
 
@@ -320,6 +324,18 @@ document.addEventListener('DOMContentLoaded', async function() {
   function showStatus(message, type) {
     statusDiv.textContent = message;
     statusDiv.className = 'status ' + type;
+  }
+
+  function showButtonFeedback(button, type) {
+    const originalText = button.textContent;
+    button.textContent = type === 'success' ? 'Saved' : 'Error';
+    button.classList.add(type === 'success' ? 'btn-success-feedback' : 'btn-error-feedback');
+    button.disabled = true;
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove('btn-success-feedback', 'btn-error-feedback');
+      button.disabled = false;
+    }, 2000);
   }
 
   await loadSettings();

@@ -95,10 +95,17 @@ class ContentInjector {
     this.button.className = 'yte-fab';
     this.button.setAttribute('aria-label', isCached ? 'View cached transcript' : 'Distill video transcript');
 
-    // Build inner HTML with extension icon + text
-    const iconUrl = typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime.getURL('icon16.png') : '';
+    // Build inner HTML with inline SVG icon + text label
+    // Inline SVG avoids CSP issues with chrome-extension:// image URLs on YouTube
     const labelText = isCached ? 'View' : 'Distill';
-    this.button.innerHTML = `${iconUrl ? `<img src="${iconUrl}" alt="" width="16" height="16" class="yte-fab-icon">` : ''}<span class="yte-fab-label">${labelText}</span>`;
+    const iconSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">' +
+      '<path d="M4 2.5C3.45 2.5 3 2.95 3 3.5V12.5C3 13.05 3.45 13.5 4 13.5H12C12.55 13.5 13 13.05 13 12.5V5.5L10 2.5H4Z" fill="white"/>' +
+      '<path d="M10 2.5V5.5H13L10 2.5Z" fill="rgba(255,255,255,0.6)"/>' +
+      '<path d="M6.5 6L6.5 9L9 7.5Z" fill="#6C5CE7"/>' +
+      '<line x1="5" y1="10.5" x2="11" y2="10.5" stroke="#6C5CE7" stroke-width="1" stroke-linecap="round"/>' +
+      '<line x1="5" y1="12" x2="9" y2="12" stroke="#6C5CE7" stroke-width="1" stroke-linecap="round"/>' +
+      '</svg>';
+    this.button.innerHTML = `${iconSvg}<span class="yte-fab-label">${labelText}</span>`;
 
     // Apply inline styles for FAB
     this._styleFAB();
