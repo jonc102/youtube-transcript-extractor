@@ -73,6 +73,7 @@ manifest.json                    # Extension configuration (permissions, content
 ├── settings.html/css/js         # Settings page (API keys, prompts, models)
 ├── background.js                # Service worker (CORS bypass, API calls, streaming ports, chat handlers)
 ├── CHANGELOG.md                 # Version history (Keep a Changelog format)
+├── PRIVACY_POLICY.md            # Privacy policy for Chrome Web Store submission
 └── Content Scripts (run on YouTube pages):
     ├── constants.js             # Shared constants (timing, selectors, limits) — loaded first
     ├── utils.js                 # Shared utility functions (logging, HTML escaping, markdown)
