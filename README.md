@@ -233,4 +233,4 @@ This extension:
 
 ## License
 
-Free to use and modify as needed.
+This project is licensed under the [MIT License](LICENSE).

@@ -1,0 +1,19 @@
+# Claude Code local config
+.claude/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Vim
+*.swp
+*.swo
+
+# IDE config
+.vscode/
+.idea/
+
+# Dependencies (future-proofing, no build process today)
+node_modules/
