@@ -2,24 +2,20 @@
 
 A Chrome extension that distills YouTube videos into transcripts, AI summaries, and conversational chat — powered by OpenAI or Claude.
 
-**Current Version:** 4.0.1
+**Current Version:** 4.1.0
 
-## What's New in v4.0.1
+## What's New in v4.1.0
 
-- **GPT-5-nano Fix** - Fixed summaries not displaying. Root cause: GPT-5-nano is a reasoning model that consumed all tokens on reasoning with none left for output. Token limit increased from 2,000 → 16,384 for reasoning headroom. Added proper error handling for empty API responses.
-
-## v4.0.0
-
-- **Conversational AI Chat** - Chat with AI about video content after summary is generated. iMessage-style bubbles, typing indicator, chat history persisted in cache.
-- **Streaming AI Responses** - Real-time text streaming for summaries via Port-based messaging with SSE parsing. Progressive text display with blinking cursor.
-- **Faster Transcript Extraction** - MutationObserver replaces fixed delays, saving 1-2 seconds per uncached extraction.
-- **Minimize Modal** - Collapse modal to a frosted glass pill in the bottom-right corner. Expand restores full state (tab, scroll, chat).
-- **Floating FAB Entry Point** - Distinctive purple floating pill button with extension icon, replacing sidebar integration.
-- **Claude Opus 4.6** - Added as the latest Claude model option.
-- **GPT-5-nano Improvements** - Model-specific token limits (16,384 for reasoning headroom), retry with exponential backoff for transient errors.
-- **Code Refactoring** - Centralized constants, deleted dead code, shared API helpers.
+- **Per-Provider API Key Storage** - Both OpenAI and Claude API keys now persist independently. Switching providers no longer overwrites the previous key. Automatic one-time migration from legacy storage on settings load.
+- **Default Prompt for New Users** - Pre-fills a concise summary prompt template with Key Takeaways, Breakdown (up to 5 major topics), and Notable Details with timestamps. Existing users keep their saved custom prompt.
 
 ## Previous Releases
+
+**v4.0.3** - FAB inline SVG icon (CSP fix), compact minimized pill, settings save feedback
+
+**v4.0.1** - GPT-5-nano fix (increased token limit from 2,000 to 16,384 for reasoning headroom)
+
+**v4.0.0** - Conversational AI chat, streaming API responses, MutationObserver extraction, minimize modal, floating FAB, Claude Opus 4.6
 
 **v3.1.0** - Apple/iOS native UI redesign with frosted glass, segmented controls, flat buttons
 
@@ -39,6 +35,8 @@ A Chrome extension that distills YouTube videos into transcripts, AI summaries, 
 - **Frosted glass modal:** Bottom-right corner modal with backdrop blur, keeps video accessible
 - **Quick settings access:** Settings gear icon in modal header
 - **AI Summary prioritized:** When AI summary exists, it shows as the default tab
+- **Per-provider API keys:** Save separate keys for OpenAI and Claude — switch providers without losing either key
+- **Default prompt included:** New users get a structured summary template out of the box
 - **Extract transcripts** from any YouTube video with captions
 - **Timestamps included** with each transcript line
 - **AI Processing** - Process transcripts with custom prompts using OpenAI or Claude APIs
@@ -68,11 +66,11 @@ Clone or download this repository to your local machine. All necessary files inc
 ### Quick Access (Floating FAB - Desktop Only)
 
 1. Navigate to any YouTube video (desktop only, not mobile)
-2. Look for the purple **"Get Transcript"** floating pill button in the bottom-right corner
+2. Look for the purple **"Distill"** floating pill button in the bottom-right corner
 3. Click the button
 4. A modal will appear in the bottom-right corner with the transcript
-   - **First time:** Button shows "Get Transcript" and extracts the transcript (with streaming AI summary)
-   - **Cached:** Button shows "View Transcript" and loads instantly
+   - **First time:** Button shows "Distill" and extracts the transcript (with streaming AI summary if configured)
+   - **Cached:** Button shows "View" and loads instantly
    - **AI Summary tab:** Shown first when AI summary exists
 5. Use the segmented control tabs to switch between "Transcript" and "Summary" (if configured)
 6. **Chat:** Below the summary, use the chat input to ask questions about the video
@@ -94,11 +92,11 @@ Clone or download this repository to your local machine. All necessary files inc
 
 1. Click the **gear icon** to open Settings (available in extension popup OR modal header)
 2. Select your **API Provider** (OpenAI or Claude)
-3. Enter your **API Key**
+3. Enter your **API Key** (each provider's key is saved independently — switching providers won't lose your key)
    - For OpenAI: Get your key from [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
    - For Claude: Get your key from [console.anthropic.com](https://console.anthropic.com/)
 4. Models will **automatically load** when you enter your API key
-5. Enter your **Custom Prompt** (e.g., "Summarize the following transcript in bullet points:")
+5. Customize the **Prompt** (a default summary template is pre-filled for new users)
 6. Select your preferred **Model**
 7. Click **Save Settings**
 8. Now when you extract a transcript:
