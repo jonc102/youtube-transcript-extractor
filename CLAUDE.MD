@@ -261,7 +261,7 @@ Current models (as of v4.0.0):
 Defines `YTE_CONSTANTS` object with:
 - **Timing values:** `TOAST_DURATION`, `MUTATION_TIMEOUT`, `ERROR_RESET_DELAY`, etc.
 - **Cache limits:** `MAX_CACHED_VIDEOS` (10), `MAX_CHAT_MESSAGES` (20)
-- **API defaults:** `DEFAULT_MAX_TOKENS_OPENAI` (4000), `NANO_MAX_TOKENS` (2000), `CHAT_CONTEXT_CHAR_LIMIT` (4000)
+- **API defaults:** `DEFAULT_MAX_TOKENS_OPENAI` (4000), `NANO_MAX_TOKENS` (16384), `CHAT_CONTEXT_CHAR_LIMIT` (4000)
 - **Retry settings:** `MAX_RETRIES` (2), `RETRY_DELAYS`, `RETRYABLE_STATUS_CODES`
 - **YouTube selectors:** `SELECTORS.MORE_ACTIONS[]`, `SELECTORS.TRANSCRIPT_SEGMENTS`, `SELECTORS.SEGMENT_TIMESTAMP[]`, `SELECTORS.SEGMENT_TEXT[]`, `SELECTORS.VIDEO_TITLE[]`, `SELECTORS.SIDEBAR[]`, `SELECTORS.MENU_ITEMS`, `SELECTORS.MENU_POPUP`
 
@@ -352,48 +352,7 @@ Creates and manages a floating modal in the bottom-right corner:
 2. **Settings Gear Icon:** Header includes SVG gear button that opens settings.html in new tab
 3. **Floating Corner Design:** Modal appears in bottom-right without backdrop, keeping video accessible
 
-**Modal structure:**
-```html
-<div class="yte-modal yte-dark">  <!-- Appended directly to document.body -->
-  <div class="yte-modal-header">
-    <h2>Distill</h2>
-    <div class="yte-modal-header-actions">
-      <button class="yte-modal-settings"><svg><!-- gear icon --></svg></button>
-      <button class="yte-modal-minimize">&minus;</button>  <!-- v4.0 -->
-      <button class="yte-modal-close">×</button>
-    </div>
-  </div>
-  <div class="yte-modal-tabs">
-    <div class="yte-modal-tabs-container">  <!-- iOS segmented control -->
-      <button class="yte-tab-btn">Transcript</button>
-      <button class="yte-tab-btn yte-active">Summary</button>
-    </div>
-  </div>
-  <div class="yte-modal-content">
-    <div class="yte-tab-content">...</div>
-    <div class="yte-tab-content yte-active">
-      <div class="yte-summary-text">...</div>
-      <div class="yte-chat-separator"></div>  <!-- v4.0 -->
-      <div class="yte-chat-area">            <!-- v4.0 -->
-        <button class="yte-chat-clear">Clear chat</button>
-        <div class="yte-chat-messages">
-          <div class="yte-chat-bubble yte-chat-bubble-user">...</div>
-          <div class="yte-chat-bubble yte-chat-bubble-assistant">...</div>
-        </div>
-        <div class="yte-chat-input-row">
-          <input class="yte-chat-input" placeholder="Ask about this video...">
-          <button class="yte-chat-send"><svg><!-- send icon --></svg></button>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="yte-modal-footer">
-    <button data-action="regenerate">Regenerate</button>
-    <button data-action="copy-transcript">Copy Transcript</button>
-    <button data-action="copy-summary">Copy Summary</button>
-  </div>
-</div>
-```
+**Modal structure:** Header (title, settings gear, minimize, close) → Tabs (Transcript/Summary segmented control) → Content (tab panels, chat area in Summary) → Footer (regenerate, copy buttons). See `modal-ui.js` source for full DOM structure.
 
 **Close behavior:**
 - Close button (×) - removes modal
@@ -418,24 +377,7 @@ Apple HIG flat design styles for the floating corner modal:
 - Responsive: full-screen on mobile (≤768px), minimize hidden
 - Font: SF Pro system font stack (`-apple-system, BlinkMacSystemFont, ...`)
 
-**Theme variables (Apple HIG):**
-```css
-.yte-modal.yte-light {
-  --yte-bg: #F2F2F7;         /* systemGroupedBackground */
-  --yte-text: #1C1C1E;       /* label */
-  --yte-accent: #007AFF;     /* systemBlue */
-  --yte-modal-bg: rgba(255, 255, 255, 0.85);  /* frosted glass */
-  /* ... */
-}
-
-.yte-modal.yte-dark {
-  --yte-bg: #1C1C1E;         /* systemBackground */
-  --yte-text: #FFFFFF;        /* label */
-  --yte-accent: #0A84FF;     /* systemBlue */
-  --yte-modal-bg: rgba(28, 28, 30, 0.85);     /* frosted glass */
-  /* ... */
-}
-```
+**Theme variables:** Apple HIG color palette via CSS custom properties (`--yte-bg`, `--yte-text`, `--yte-accent`, `--yte-modal-bg`). Light uses `#F2F2F7`/`#007AFF`, dark uses `#1C1C1E`/`#0A84FF`. See `modal-styles.css` for full variable definitions.
 
 #### transcript-orchestrator.js (Unified Extraction Flow)
 
@@ -546,155 +488,15 @@ v4.0 uses `MutationObserver` via `waitForElement(selector, timeout)` to detect D
   - Inline SVG bypasses CSP entirely — renders a white document icon with purple play triangle and transcript lines matching the extension's icon design
   - Removed the v4.0.2 CSS filter workaround (`brightness(0) invert(1)`) that was ineffective
 
-**v4.0.2** (2026-02-16)
-- **FAB Icon Fix (Superseded by v4.0.3)**: Applied `brightness(0) invert(1)` CSS filter to make the extension icon white on the purple FAB background (previously invisible purple-on-purple)
-- **Compact Minimized Pill**: Replaced bulky minimized modal (truncated title + expand/close buttons) with compact "Distill" branded pill — entire title is clickable to expand, small close (x) button, keyboard accessible
-- **Save Button Feedback**: Settings "Save Settings" button now shows "Saved" (green) or "Error" (red) text with color change for 2s after click
-- **Status Message Visibility**: Fixed invisible status backgrounds on settings page — now uses semi-transparent tinted colors instead of blending into page background
+**v4.0.2** (2026-02-16) - Compact minimized pill, save button feedback, status message visibility fix
+**v4.0.1** (2026-02-16) - GPT-5-nano fix (token limit 2000→16384), null content validation, duplicate modal fix
+**v4.0.0** (2026-02-15) - Chat, streaming, MutationObserver extraction, minimize modal, FAB entry point, constants.js refactor
+**v3.1.0** (2026-01-30) - Apple HIG UI redesign
+**v3.0.x** (2026-01-18–20) - In-page modal, caching, regenerate, context invalidation fix, rich text copy, Arc compat
+**v2.x** (2026-01-09–18) - Settings panel, OpenAI/Claude API integration, model fetching
+**v1.x** - Initial release, timestamp extraction
 
-**v4.0.1** (2026-02-16)
-- **GPT-5-nano Fix**: Fixed summaries not displaying when using GPT-5-nano model
-  - Root cause: GPT-5-nano is a reasoning model that consumed all 2000 `max_completion_tokens` on reasoning tokens, leaving `content: null` in the API response (`finish_reason: length`)
-  - Increased GPT-5-nano token limit from 2000 → 16384 to provide headroom for reasoning + output
-  - Added null/empty content validation in `callOpenAI` and `chatOpenAI` — now throws descriptive error instead of silently returning null
-  - Streaming handler now checks `delta.reasoning_content` as fallback for reasoning model responses
-  - `_processWithAI` now handles undefined `chrome.runtime.sendMessage` responses and logs fallback path
-  - `ModalUI.showLoading()` now closes existing modal first to prevent duplicate modal elements
-- **Constants:** `NANO_MAX_TOKENS` updated from 2000 → 16384
-
-**v4.0.0** (2026-02-15)
-- **Conversational AI Chat**: Chat with AI about video content after summary is generated
-  - iMessage-style chat bubbles (user right/accent, assistant left/surface) in Summary tab
-  - Uses summary as system context to manage token budget
-  - 20-message limit per video, history persisted in cache
-  - Typing indicator with pulsing dots, auto-scroll, clear chat button
-  - Chat cleared when summary is regenerated (stale context)
-  - Provider-specific payloads (OpenAI system message vs Claude top-level system param)
-- **Streaming API Responses**: Real-time text streaming for AI summaries
-  - Port-based messaging (`chrome.runtime.connect()`) for streaming
-  - SSE parsing for both OpenAI and Claude streaming endpoints
-  - Progressive text display with blinking cursor, full markdown on completion
-  - `requestAnimationFrame` throttled DOM updates (~60fps)
-  - Fallback to non-streaming if streaming fails
-- **MutationObserver DOM Extraction**: Faster transcript extraction
-  - `waitForElement(selector, timeout)` replaces fixed `setTimeout` delays
-  - 1-2 second savings per uncached extraction
-  - 3000ms timeout safety net with fixed-delay fallback
-- **GPT-5-nano Defensive Improvements**:
-  - Model-specific token limits (GPT-5-nano: 16384 for reasoning headroom, others: 4000)
-  - `fetchWithRetry()` with exponential backoff for transient errors (429, 500, 502, 503)
-  - Max 2 retries, delays: 1s, 2s — applies to all models
-  - Enhanced error logging with model and status details
-- **Claude Opus 4.6**: Added `claude-opus-4-6` as Latest model, Opus 4.5 demoted
-- **Minimize Modal**: Collapse modal to frosted glass pill in bottom-right corner
-  - Preserves state (active tab, scroll position, chat messages)
-  - Expand button restores full modal with saved state
-  - Hidden on mobile (no minimize button on screens ≤768px)
-  - Navigation closes minimized pill
-- **Floating FAB Entry Point**: Distinctive purple floating pill button
-  - Fixed position (`bottom: 90px; right: 24px;`), `#6C5CE7` purple, pill shape
-  - Extension icon (`icon16.png`) + text label
-  - Hover: `scale(1.05)` + enhanced shadow
-  - Hides when modal open, reappears on close
-  - Removed sidebar integration and `setInterval` URL polling
-- **Code Refactoring**:
-  - New `constants.js` with centralized `YTE_CONSTANTS` (timing, selectors, limits)
-  - New `chat-manager.js` for per-video conversation state
-  - Deleted dead `api.js` (never called since v3.0)
-  - Removed unused `originalTranscript`/`copyTranscriptBtn` from popup.js
-  - Removed unused CSS rules from popup.css
-  - Shared header builders and request body builder in background.js
-  - YouTube selectors centralized in constants, used across content.js and utils.js
-
-**v3.1.0** (2026-01-30)
-- **Apple/iOS Native UI Redesign**: Full visual overhaul to Apple HIG flat aesthetic
-  - SF Pro system font stack (`-apple-system, BlinkMacSystemFont, ...`) throughout all surfaces
-  - Apple HIG color palette: `#007AFF`/`#0A84FF` system blue, `#F2F2F7`/`#1C1C1E` backgrounds
-  - Frosted glass modal with `backdrop-filter: blur(20px)` and semi-transparent background
-  - iOS segmented control tabs replacing underline-style tabs
-  - Flat buttons with opacity hover (removed all `box-shadow`, `translateY`, `filter: brightness` effects)
-  - Pill-shaped centered toast notifications with frosted glass background
-  - Removed all emoji from UI controls (clean text labels only)
-  - SVG gear icon replacing emoji settings button in modal
-  - Settings: uppercase letterspaced section headers, filled inputs (no border), text Show/Hide toggle
-  - Settings: refresh button uses "Refresh" text instead of emoji
-  - In-page button: clean labels ("Distill", "View", "Loading...", "Try Again")
-  - Thinner scrollbars (6px) with subtle colors
-  - Subtle error state (background tint only, no left border bar, no emoji)
-  - All `::before` content emoji pseudo-elements removed from status/toast/error/info messages
-  - Uses `:focus-visible` instead of `:focus` for keyboard-only focus rings
-  - 10px border radius on buttons and inputs (Apple standard)
-
-**v3.0.6** (2026-01-20)
-- **Regenerate AI Summary Feature**: Added ability to regenerate or generate AI summaries from modal
-  - New "Regenerate" / "Generate Summary" button in modal footer
-  - Button state adapts based on AI configuration and existing summary
-  - Loading animation with pulse effect during regeneration
-  - Toast notifications for success/failure feedback
-  - Double-click prevention during processing
-  - Cache automatically updated with regenerated summaries
-  - Settings validation before regeneration attempt
-
-**v3.0.5** (2026-01-19)
-- **Extension Context Invalidation Fix**: Improved error handling when extension is reloaded
-  - Added `Utils.isChromeAPIAvailable()` to check Chrome API availability
-  - Enhanced error detection to catch "Cannot read properties of undefined" errors
-  - Shows clear user-facing error modal: "Extension was reloaded. Please refresh (F5)"
-  - Prevents cryptic console errors and silent failures
-  - Added guard checks in TranscriptOrchestrator before accessing chrome.storage
-
-**v3.0.4** (2026-01-19)
-- Complete UI/UX modernization: unified design system, dark/light theme support, CSS variables
-- Rich text copy support (dual MIME: text/plain + text/html for formatted paste in Docs/Word)
-- Arc Browser compatibility fix (chrome.tabs.create instead of window.open)
-- OpenAI API compatibility fix (max_completion_tokens for newer models, temperature exclusion for O1)
-- Improved OpenAI model filtering and user-friendly labels
-- Accessibility: focus outlines, ARIA labels, keyboard navigation
-
-**v3.0.3** (2026-01-19)
-- UI engagement improvements: button styling and text updates (superseded by v3.1.0)
-
-**v3.0.2** (2026-01-19)
-- Fixed stale modal data on video navigation
-- Modal automatically closes when navigating to new videos
-- Added currentVideoId tracking to prevent showing wrong video's data
-- Button click handler uses current URL instead of stale captured videoId
-- Fixed markdown bold/italic rendering in AI summaries (list items and headers)
-- Enhanced markdownToHtml() with applyInlineFormatting() helper function
-
-**v3.0.1** (2026-01-18)
-- AI Summary tab as default when summary exists
-- Settings gear icon in modal header
-- Floating corner modal (no backdrop overlay)
-- Video remains accessible while modal open
-
-**v3.0.0** (2026-01-18) - Major Release
-- In-page "Get Transcript" button (desktop sidebar)
-- Smart caching system (10 most recent videos, LRU eviction)
-- Modern modal UI with tabs (Transcript/AI Summary)
-- Dual entry points (in-page button + extension icon)
-- Theme detection (auto light/dark mode)
-- Content script architecture with modular components
-- Instant loading for cached transcripts
-
-**v2.2.0** (2026-01-18)
-- API key fixes
-- Updated model lists
-
-**v2.0.0** (2026-01-09) - Major Release
-- Settings panel with gear icon
-- OpenAI and Claude API integration
-- Custom prompt functionality
-- Dynamic model fetching
-- Model caching
-
-**v1.1-timestamp**
-- Added timestamp extraction
-- Enhanced error handling
-
-**v1.0.0** - Initial Release
-- Basic transcript extraction
-- One-click copy to clipboard
+See `git log` for full details on older versions.
 
 ## Versioning
 
@@ -707,104 +509,17 @@ Increment by 0.0.1 for patches, 0.1.0 for features.
 
 ## Testing Checklist
 
-Manual testing required (no automated tests):
+Manual testing required (no automated tests). Key areas to verify:
 
-### Core Functionality
-- [ ] Extension loads without errors
-- [ ] Transcript extraction works (try TED Talks, music videos)
-- [ ] Timestamps formatted correctly `[0:00] text`
-- [ ] Error messages for videos without transcripts
-
-### Entry Points (v4.0)
-- [ ] Purple floating FAB pill appears in bottom-right (desktop only)
-- [ ] FAB has inline SVG icon + text label
-- [ ] FAB text: "Distill" (first time), "View" (cached)
-- [ ] FAB hover: scale up + enhanced shadow
-- [ ] FAB hides when modal opens, reappears when modal closes
-- [ ] Extension icon popup opens on YouTube video pages
-- [ ] Both entry points open the same modal on YouTube page
-
-### Modal UI (v3.0.1)
-- [ ] Modal appears in bottom-right corner (not centered)
-- [ ] No dark backdrop overlay present
-- [ ] Video player remains clickable and playable with modal open
-- [ ] AI Summary tab is active by default (when summary exists)
-- [ ] Transcript tab is active by default (when no summary)
-- [ ] Settings gear icon (SVG) appears in modal header
-- [ ] Clicking settings gear opens settings.html in new tab
-- [ ] Close button (×) closes modal
-- [ ] Escape key closes modal
-- [ ] Tab switching works between Transcript/Summary
-- [ ] Copy buttons work for both tabs
-- [ ] Toast notifications appear on copy
-- [ ] Rich text copy: Paste summary in Google Docs shows formatted text (bold, lists, etc.)
-- [ ] Rich text copy: Paste summary in VS Code shows plain markdown
-- [ ] Rich text copy: Transcript copies as plain text with timestamps
-- [ ] iOS segmented control tabs switch correctly
-- [ ] Frosted glass modal background with blur effect
-- [ ] Toast notifications are pill-shaped and centered
-- [ ] No emoji visible in any UI controls
-- [ ] Mobile: modal is full-screen (≤768px)
-
-### Chat (v4.0)
-- [ ] Chat input appears below summary in Summary tab
-- [ ] Chat input disabled with message when no summary exists
-- [ ] Send message via Enter key
-- [ ] Send message via circular send button
-- [ ] User messages appear right-aligned with accent color
-- [ ] Assistant messages appear left-aligned with surface color
-- [ ] Typing indicator (pulsing dots) while waiting for response
-- [ ] Chat works with OpenAI models
-- [ ] Chat works with Claude models
-- [ ] Chat history persists across minimize/expand
-- [ ] Chat history clears when summary is regenerated
-- [ ] "Clear chat" button appears when messages exist
-- [ ] Chat scrolls to newest message
-- [ ] Max 20 messages enforced
-
-### Streaming (v4.0)
-- [ ] Summary text appears progressively during streaming
-- [ ] Blinking cursor visible during stream
-- [ ] Full markdown rendered on stream completion
-- [ ] Streaming works with OpenAI
-- [ ] Streaming works with Claude
-- [ ] Fallback to non-streaming if streaming fails
-- [ ] Closing modal during stream doesn't cause errors
-
-### Minimize (v4.0)
-- [ ] Minimize button (&minus;) appears in modal header
-- [ ] Clicking minimize collapses to frosted glass pill
-- [ ] Pill shows "Distill" brand label
-- [ ] Clicking pill title expands full modal
-- [ ] Active tab preserved after expand
-- [ ] Scroll position preserved after expand
-- [ ] Chat history preserved after expand
-- [ ] Navigation closes minimized pill
-- [ ] No minimize button on mobile (≤768px)
-
-### GPT-5-nano (v4.0)
-- [ ] GPT-5-nano uses 2000 token limit
-- [ ] Transient errors (429, 500, 502, 503) trigger retry
-- [ ] Max 2 retries with 1s, 2s delays
-- [ ] Detailed error messages displayed in toast
-
-### Caching System (v3.0)
-- [ ] First extraction caches transcript
-- [ ] Revisiting cached video loads instantly
-- [ ] Cache includes AI summary if processed
-- [ ] Cache persists across browser sessions
-- [ ] 11th video evicts oldest cached video
-- [ ] Cache works independently per video ID
-
-### Settings & API Processing
-- [ ] Settings button opens settings page
-- [ ] Settings persist after saving
-- [ ] API keys load correctly when reopening settings
-- [ ] Models fetch automatically when API key entered
-- [ ] AI processing works with valid API keys
-- [ ] AI summary appears in separate tab in modal
-- [ ] Fallback to original transcript on API errors
-- [ ] Clear settings removes all stored data
+- **Core:** Extension loads, transcript extraction works (TED Talks, music videos), timestamps formatted `[0:00] text`, error messages for videos without transcripts
+- **Entry Points:** FAB appears on desktop, hides when modal opens, both FAB and extension icon open same modal
+- **Modal:** Bottom-right floating, no backdrop overlay, tab switching (Transcript/Summary), copy buttons, close (× and Escape), settings gear opens settings page
+- **Chat:** Input below summary, send via Enter/button, works with OpenAI and Claude, history persists across minimize/expand, clears on regenerate, 20-message limit
+- **Streaming:** Progressive text display, works with both providers, fallback to non-streaming, no errors when closing mid-stream
+- **Minimize:** Collapses to pill, expands with state preserved (tab, scroll, chat), navigation closes pill
+- **Caching:** First extraction caches, revisit loads instantly, 11th video evicts oldest, cache persists across sessions
+- **Settings:** Settings persist, API keys load per-provider, models auto-fetch on key entry, AI summary appears in modal
+- **GPT-5-nano:** Uses 16384 token limit, transient errors (429/500/502/503) trigger retry (max 2)
 
 ## Known Limitations
 
@@ -840,7 +555,7 @@ Manual testing required (no automated tests):
 ## Git Workflow
 
 **Branches:**
-- `main` - Stable branch (contains v4.0.0). Default branch on GitHub.
+- `main` - Stable branch (contains v4.1.0). Default branch on GitHub.
 - `v2.0`, `v3.0` - Version branches (merged into main)
 - `v2.0-feature-expansion`, `v3-enhancements` - Feature branches (archived)
 - `v1.1-timestamp` - Old stable branch name (replaced by main, can be deleted)
