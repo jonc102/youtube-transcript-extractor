@@ -326,8 +326,13 @@ class ModalUI {
 
     // Check AI configuration
     try {
-      const settings = await chrome.storage.sync.get(['apiProvider', 'apiKey', 'customPrompt', 'model']);
-      if (!settings.apiProvider || !settings.apiKey || !settings.customPrompt) {
+      const settings = await chrome.storage.sync.get(['apiProvider', 'apiKey', 'openaiApiKey', 'claudeApiKey', 'customPrompt', 'model']);
+      const activeKey = settings.apiProvider === 'openai'
+        ? (settings.openaiApiKey || settings.apiKey)
+        : settings.apiProvider === 'claude'
+          ? (settings.claudeApiKey || settings.apiKey)
+          : settings.apiKey;
+      if (!settings.apiProvider || !activeKey || !settings.customPrompt) {
         this._showToast('Please configure AI settings first.', 'info');
         return;
       }
@@ -419,8 +424,13 @@ class ModalUI {
     }
 
     try {
-      const settings = await chrome.storage.sync.get(['apiProvider', 'apiKey', 'customPrompt']);
-      const isAIConfigured = settings.apiProvider && settings.apiKey && settings.customPrompt;
+      const settings = await chrome.storage.sync.get(['apiProvider', 'apiKey', 'openaiApiKey', 'claudeApiKey', 'customPrompt']);
+      const activeKey = settings.apiProvider === 'openai'
+        ? (settings.openaiApiKey || settings.apiKey)
+        : settings.apiProvider === 'claude'
+          ? (settings.claudeApiKey || settings.apiKey)
+          : settings.apiKey;
+      const isAIConfigured = settings.apiProvider && activeKey && settings.customPrompt;
       const hasSummary = this.currentData && this.currentData.summary && this.currentData.summary.result;
 
       if (!isAIConfigured && !hasSummary) {

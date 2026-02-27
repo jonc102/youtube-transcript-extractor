@@ -59,6 +59,19 @@ async function fetchClaudeModels(apiKey) {
   }
 }
 
+const DEFAULT_PROMPT = `Summarize this YouTube transcript concisely:
+
+**KEY TAKEAWAYS** (3-5 bullets)
+- [timestamp] Main point in one sentence
+
+**BREAKDOWN** (up to 5 major topics)
+- **[timestamp] Section Title** — Key points with specific details, data, or examples mentioned
+
+**NOTABLE** (if any)
+- Statistics, sources, counterintuitive points, or actionable tips with timestamps
+
+RULES: Only include what's stated in the transcript. Note if anything is unclear or incomplete. Include timestamps where available.`;
+
 document.addEventListener('DOMContentLoaded', async function() {
   const backBtn = document.getElementById('backBtn');
   const apiProviderSelect = document.getElementById('apiProvider');
@@ -74,6 +87,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   const apiKeySection = document.getElementById('apiKeySection');
   const promptSection = document.getElementById('promptSection');
   const modelSection = document.getElementById('modelSection');
+
+  // Tracks which provider the UI is currently showing, used to auto-save outgoing key on switch
+  let currentVisualProvider = '';
 
   // Initialize theme on page load
   async function initializeTheme() {
@@ -119,10 +135,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
 
-  apiProviderSelect.addEventListener('change', function() {
-    const provider = apiProviderSelect.value;
+  apiProviderSelect.addEventListener('change', async function() {
+    const newProvider = apiProviderSelect.value;
 
-    if (provider === '') {
+    // Auto-save the current input value to the outgoing provider's key
+    if (currentVisualProvider && currentVisualProvider !== '' && apiKeyInput.value.trim()) {
+      const outgoingKeyName = currentVisualProvider === 'openai' ? 'openaiApiKey' : 'claudeApiKey';
+      await chrome.storage.sync.set({ [outgoingKeyName]: apiKeyInput.value.trim() });
+    }
+
+    currentVisualProvider = newProvider;
+
+    if (newProvider === '') {
       apiKeySection.style.display = 'none';
       promptSection.style.display = 'none';
       modelSection.style.display = 'none';
@@ -130,6 +154,18 @@ document.addEventListener('DOMContentLoaded', async function() {
       apiKeySection.style.display = 'block';
       promptSection.style.display = 'block';
       modelSection.style.display = 'block';
+
+      // Load the saved key for the new provider
+      const incomingKeyName = newProvider === 'openai' ? 'openaiApiKey' : 'claudeApiKey';
+      const stored = await chrome.storage.sync.get([incomingKeyName]);
+      apiKeyInput.value = stored[incomingKeyName] || '';
+
+      // Clear and re-fetch models if a key exists
+      modelSelect.innerHTML = '';
+      cachedModels[newProvider] = null;
+      if (apiKeyInput.value) {
+        await fetchAndPopulateModels(newProvider, apiKeyInput.value);
+      }
     }
   });
 
@@ -221,26 +257,54 @@ document.addEventListener('DOMContentLoaded', async function() {
       const settings = await chrome.storage.sync.get([
         'apiProvider',
         'apiKey',
+        'openaiApiKey',
+        'claudeApiKey',
         'customPrompt',
         'model'
       ]);
 
-      if (settings.apiProvider) {
-        apiProviderSelect.value = settings.apiProvider;
-        apiProviderSelect.dispatchEvent(new Event('change'));
-      }
-
-      if (settings.apiKey) {
-        apiKeyInput.value = settings.apiKey;
-
-        if (settings.apiProvider) {
-          await fetchAndPopulateModels(settings.apiProvider, settings.apiKey);
+      // Migration: if legacy apiKey exists but no per-provider key, copy it
+      if (settings.apiKey && settings.apiProvider) {
+        const providerKeyName = settings.apiProvider === 'openai' ? 'openaiApiKey' : 'claudeApiKey';
+        if (!settings[providerKeyName]) {
+          settings[providerKeyName] = settings.apiKey;
+          await chrome.storage.sync.set({ [providerKeyName]: settings.apiKey });
+          console.log(`[Settings] Migrated legacy apiKey to ${providerKeyName}`);
         }
       }
 
-      if (settings.customPrompt) {
-        customPromptInput.value = settings.customPrompt;
+      if (settings.apiProvider) {
+        apiProviderSelect.value = settings.apiProvider;
+        // Show/hide sections inline instead of dispatching change event
+        if (settings.apiProvider === '') {
+          apiKeySection.style.display = 'none';
+          promptSection.style.display = 'none';
+          modelSection.style.display = 'none';
+        } else {
+          apiKeySection.style.display = 'block';
+          promptSection.style.display = 'block';
+          modelSection.style.display = 'block';
+        }
       }
+
+      currentVisualProvider = settings.apiProvider || '';
+
+      // Display the per-provider key, falling back to legacy apiKey
+      const displayKey = settings.apiProvider === 'openai'
+        ? (settings.openaiApiKey || settings.apiKey || '')
+        : settings.apiProvider === 'claude'
+          ? (settings.claudeApiKey || settings.apiKey || '')
+          : (settings.apiKey || '');
+
+      if (displayKey) {
+        apiKeyInput.value = displayKey;
+
+        if (settings.apiProvider) {
+          await fetchAndPopulateModels(settings.apiProvider, displayKey);
+        }
+      }
+
+      customPromptInput.value = settings.customPrompt || DEFAULT_PROMPT;
 
       if (settings.model) {
         modelSelect.value = settings.model;
@@ -277,6 +341,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         model: model
       };
 
+      // Also write the per-provider key
+      if (provider === 'openai') {
+        settings.openaiApiKey = apiKey;
+      } else if (provider === 'claude') {
+        settings.claudeApiKey = apiKey;
+      }
+
       await chrome.storage.sync.set(settings);
       showStatus('Settings saved successfully!', 'success');
       showButtonFeedback(saveBtn, 'success');
@@ -300,6 +371,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     try {
       await chrome.storage.sync.clear();
 
+      currentVisualProvider = '';
       apiProviderSelect.value = '';
       apiKeyInput.value = '';
       customPromptInput.value = '';

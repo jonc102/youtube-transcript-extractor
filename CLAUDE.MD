@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Distill is a Chrome Manifest V3 extension that extracts transcripts from YouTube videos and optionally processes them using OpenAI or Claude AI with custom prompts.
 
-**Current Version:** 4.0.3
-**Branch Strategy:** `main` is the stable branch (contains v4.0.3). All PRs should target `main`. Create feature branches from `main`.
+**Current Version:** 4.1.0
+**Branch Strategy:** `main` is the stable branch (contains v4.1.0). All PRs should target `main`. Create feature branches from `main`.
 
 ## Development Workflow
 
@@ -222,6 +222,12 @@ Flow:
 5. Popup closes after modal opens on YouTube page
 
 ### settings.js (Settings Management)
+
+**Default Prompt:**
+`DEFAULT_PROMPT` constant provides a concise summary template for new users (Key Takeaways, Breakdown up to 5 topics, Notable Details with timestamps). Pre-filled when no `customPrompt` exists in storage.
+
+**Per-Provider API Key Storage:**
+`currentVisualProvider` tracks the UI's active provider. On provider switch, the outgoing key is auto-saved to `openaiApiKey`/`claudeApiKey` before loading the incoming provider's key. Save handler writes both `apiKey` (legacy) and the per-provider key.
 
 **Model Caching Pattern:**
 ```javascript
@@ -446,6 +452,7 @@ Orchestrates the entire transcript extraction and display flow:
 - `TranscriptOrchestrator.extractAndDisplay(videoId, source)` - Main entry point
 - `TranscriptOrchestrator.regenerateSummary(videoId, transcript)` - Regenerate with streaming
 - `TranscriptOrchestrator.sendChatMessage(videoId, userMessage)` - Send chat message
+- `TranscriptOrchestrator._resolveApiKey(settings)` - Returns per-provider key, falls back to legacy `apiKey`
 - `TranscriptOrchestrator._streamFromPort(portName, request)` - Stream AI response via background port
 - `TranscriptOrchestrator._processWithAI(transcript, isDark)` - Streaming-first with non-streaming fallback
 
@@ -485,15 +492,18 @@ Settings persist across Chrome browsers (encrypted by Chrome):
 // Save
 chrome.storage.sync.set({
   apiProvider: 'openai',
-  apiKey: 'sk-...',
+  apiKey: 'sk-...',          // Derived: equals active provider's key (backward compat)
+  openaiApiKey: 'sk-...',    // Per-provider key (persists across provider switches)
+  claudeApiKey: 'sk-ant-...', // Per-provider key (persists across provider switches)
   customPrompt: '...',
   model: 'gpt-4o'
 });
 
 // Load
 const settings = await chrome.storage.sync.get([
-  'apiProvider', 'apiKey', 'customPrompt', 'model'
+  'apiProvider', 'apiKey', 'openaiApiKey', 'claudeApiKey', 'customPrompt', 'model'
 ]);
+// Use TranscriptOrchestrator._resolveApiKey(settings) to get the active provider's key
 ```
 
 ### YouTube DOM Resilience
@@ -518,7 +528,19 @@ v4.0 uses `MutationObserver` via `waitForElement(selector, timeout)` to detect D
 
 ## Version History
 
-**v4.0.3** (2026-02-16) - Current
+**v4.1.0** (2026-02-27) - Current
+- **Per-Provider API Key Storage**: Both OpenAI and Claude API keys now persist independently
+  - Switching providers no longer overwrites the previous key
+  - New storage keys: `openaiApiKey`, `claudeApiKey` alongside legacy `apiKey` for backward compat
+  - Auto-saves outgoing provider's key when switching in settings
+  - Automatic one-time migration from legacy `apiKey` on settings load
+  - Content scripts fall back to legacy `apiKey` via `_resolveApiKey()` before migration runs
+- **Default Prompt for New Users**: Pre-fills a concise summary prompt template
+  - Structured output: Key Takeaways, Breakdown (up to 5 major topics), Notable Details
+  - Includes timestamps for navigation
+  - Existing users keep their saved custom prompt
+
+**v4.0.3** (2026-02-16)
 - **FAB Inline SVG Icon**: Replaced `<img>` tag loading `icon16.png` with inline SVG to fix icon not rendering on YouTube
   - Root cause: YouTube's Content Security Policy blocks CSS filters on images loaded from `chrome-extension://` URLs in content scripts, making the icon invisible
   - Inline SVG bypasses CSP entirely — renders a white document icon with purple play triangle and transcript lines matching the extension's icon design
@@ -853,5 +875,5 @@ Manual testing required (no automated tests):
 
 ---
 
-**Last Updated:** 2026-02-16
-**Current Version:** 4.0.3
+**Last Updated:** 2026-02-27
+**Current Version:** 4.1.0

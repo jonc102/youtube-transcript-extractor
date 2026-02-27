@@ -99,6 +99,22 @@ class TranscriptOrchestrator {
   }
 
   /**
+   * Resolve API key from per-provider keys, falling back to legacy apiKey
+   * @private
+   * @param {Object} settings - Chrome storage settings
+   * @returns {string|undefined} - API key for the active provider
+   */
+  static _resolveApiKey(settings) {
+    if (settings.apiProvider === 'openai' && settings.openaiApiKey) {
+      return settings.openaiApiKey;
+    }
+    if (settings.apiProvider === 'claude' && settings.claudeApiKey) {
+      return settings.claudeApiKey;
+    }
+    return settings.apiKey;
+  }
+
+  /**
    * Process transcript with AI using streaming if available
    * @private
    * @param {string} transcript - Raw transcript text
@@ -112,10 +128,12 @@ class TranscriptOrchestrator {
       }
 
       const settings = await chrome.storage.sync.get([
-        'apiProvider', 'apiKey', 'customPrompt', 'model'
+        'apiProvider', 'apiKey', 'openaiApiKey', 'claudeApiKey', 'customPrompt', 'model'
       ]);
 
-      if (!settings.apiProvider || !settings.apiKey || !settings.customPrompt) {
+      const apiKey = this._resolveApiKey(settings);
+
+      if (!settings.apiProvider || !apiKey || !settings.customPrompt) {
         console.log('[Orchestrator] AI processing not configured, skipping');
         return null;
       }
@@ -127,7 +145,7 @@ class TranscriptOrchestrator {
 
       try {
         const result = await this._streamFromPort(portName, {
-          apiKey: settings.apiKey,
+          apiKey: apiKey,
           model: settings.model,
           prompt: settings.customPrompt,
           transcript: transcript
@@ -152,7 +170,7 @@ class TranscriptOrchestrator {
       const action = settings.apiProvider === 'openai' ? 'callOpenAI' : 'callClaude';
       const response = await chrome.runtime.sendMessage({
         action: action,
-        apiKey: settings.apiKey,
+        apiKey: apiKey,
         model: settings.model,
         prompt: settings.customPrompt,
         transcript: transcript
@@ -292,10 +310,12 @@ class TranscriptOrchestrator {
 
     try {
       const settings = await chrome.storage.sync.get([
-        'apiProvider', 'apiKey', 'model'
+        'apiProvider', 'apiKey', 'openaiApiKey', 'claudeApiKey', 'model'
       ]);
 
-      if (!settings.apiProvider || !settings.apiKey) {
+      const apiKey = this._resolveApiKey(settings);
+
+      if (!settings.apiProvider || !apiKey) {
         throw new Error('AI not configured');
       }
 
@@ -319,14 +339,14 @@ class TranscriptOrchestrator {
       if (settings.apiProvider === 'openai') {
         response = await chrome.runtime.sendMessage({
           action: 'chatOpenAI',
-          apiKey: settings.apiKey,
+          apiKey: apiKey,
           model: settings.model,
           messages: payload.messages
         });
       } else if (settings.apiProvider === 'claude') {
         response = await chrome.runtime.sendMessage({
           action: 'chatClaude',
-          apiKey: settings.apiKey,
+          apiKey: apiKey,
           model: settings.model,
           messages: payload.messages,
           system: payload.system
